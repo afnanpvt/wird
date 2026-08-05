@@ -82,6 +82,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             "They're kept permanently and will only be lost if you uninstall wird.",
             style: TextStyle(fontSize: 14, height: 1.5, color: colorScheme.onSurface),
           ),
+          const SizedBox(height: 48),
+          Text('ABOUT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset('assets/images/logo.png', height: 36, width: 36, fit: BoxFit.cover),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('wird.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
+                  const SizedBox(height: 2),
+                  Text('built by afnan', style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text('feedback or issues', style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 4),
+          SelectableText(
+            'afnan.wird@gmail.com',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+          ),
         ],
       ),
     );

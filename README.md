@@ -52,6 +52,10 @@ a couple of things worth knowing before you open a pr: this project handles qura
 
 open an issue first if you're planning something big, so we're not duplicating effort.
 
+## feedback or issues
+
+afnan.wird@gmail.com, or open an issue here on github. either works.
+
 ## a note on why this exists
 
 no pressure, no guilt, no cloud. just you and a book that's been read the same way for fourteen hundred years, tracked by an app that minds its own business.

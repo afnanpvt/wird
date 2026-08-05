@@ -33,9 +33,9 @@ that also means: if you uninstall the app, it's gone. there's no cloud backup to
 
 ## trying it out
 
-apk coming soon. once there's a build worth sharing, it'll be attached to a release here.
+[download the apk](https://github.com/afnanpvt/wird/raw/main/dist/wird.apk) and install it. android will probably warn you about installing from outside the play store since this isn't signed with a play store key, that's expected for a small independent project like this, not a red flag.
 
-if you want to run it yourself in the meantime, it's a standard flutter project:
+if you'd rather build it yourself, it's a standard flutter project:
 
 ```
 flutter pub get

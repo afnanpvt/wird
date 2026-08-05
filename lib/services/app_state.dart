@@ -66,6 +66,18 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 'first' the very first time the app is ever opened, 'back' when
+  /// returning on a new calendar day, or null if already shown today.
+  String? checkWelcomeModal() {
+    final last = _settingsService.getLastWelcomedDate();
+    if (last == null) return 'first';
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    return last.isBefore(todayDate) ? 'back' : null;
+  }
+
+  Future<void> markWelcomeModalShown() => _settingsService.saveLastWelcomedDate(DateTime.now());
+
   int get ayahsReadToday => _streakService.ayahsReadToday();
   int get ayahsReadThisWeek => _streakService.ayahsReadThisWeek();
   int get totalAyahsRead => _streakService.totalAyahsRead();

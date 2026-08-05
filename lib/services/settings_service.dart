@@ -22,4 +22,12 @@ class SettingsService {
   bool getUseSimpleTranslation() => _box.get('useSimpleTranslation') as bool? ?? false;
 
   Future<void> saveUseSimpleTranslation(bool value) => _box.put('useSimpleTranslation', value);
+
+  DateTime? getLastWelcomedDate() {
+    final value = _box.get('lastWelcomedDate') as String?;
+    return value == null ? null : DateTime.parse(value);
+  }
+
+  Future<void> saveLastWelcomedDate(DateTime date) =>
+      _box.put('lastWelcomedDate', DateTime(date.year, date.month, date.day).toIso8601String());
 }

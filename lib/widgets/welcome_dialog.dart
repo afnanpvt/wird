@@ -44,16 +44,6 @@ Future<void> showWelcomeDialog(BuildContext context, {required bool isFirstLaunc
                 child: Text(isFirstLaunch ? "Let's begin" : 'Continue'),
               ),
             ),
-            const SizedBox(height: 14),
-            Text(
-              'BUILT BY AFNAN',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.1,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
-            ),
           ],
         ),
       );

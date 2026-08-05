@@ -36,7 +36,7 @@ class ReadingScreen extends StatefulWidget {
 class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserver, RouteAware {
   late final List<Ayah> _ayahs;
   late final bool _hasBismillah;
-  late final Ayah _bismillah;
+  late final String _bismillahText;
   late final PageController _pageController;
   late int _currentIndex;
   late bool _tracksContinue;
@@ -45,7 +45,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   Duration _elapsed = Duration.zero;
   Timer? _ticker;
 
-  int get _pageCount => _ayahs.length + (_hasBismillah ? 1 : 0);
+  int get _pageCount => _ayahs.length;
 
   @override
   void initState() {
@@ -54,10 +54,9 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     final quran = context.read<AppState>().quran;
     _ayahs = quran.ayahsForSurah(widget.initialSurahNumber);
     _hasBismillah = widget.initialSurahNumber != 1 && !_surahsWithoutBismillah.contains(widget.initialSurahNumber);
-    _bismillah = quran.ayahsForSurah(1).first;
+    _bismillahText = quran.ayahsForSurah(1).first.arabicText;
 
-    final startAyahIndex = (widget.initialAyahNumber - 1).clamp(0, _ayahs.length - 1);
-    _currentIndex = _hasBismillah && widget.initialAyahNumber <= 1 ? 0 : startAyahIndex + (_hasBismillah ? 1 : 0);
+    _currentIndex = (widget.initialAyahNumber - 1).clamp(0, _ayahs.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
     _tracksContinue = widget.updatesContinuePoint;
     _sessionAyahCount = 1;
@@ -105,13 +104,13 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _ticker = null;
   }
 
-  bool _isBismillahPage(int index) => _hasBismillah && index == 0;
+  bool _showsBismillah(int index) => _hasBismillah && index == 0;
 
-  Ayah _contentAt(int index) => _isBismillahPage(index) ? _bismillah : _ayahs[_hasBismillah ? index - 1 : index];
+  Ayah _contentAt(int index) => _ayahs[index];
 
-  int _ayahNumberForDisplay(int index) => _hasBismillah ? index : index + 1;
+  int _ayahNumberForDisplay(int index) => index + 1;
 
-  int _pageIndexForAyah(int ayahNumber) => _hasBismillah ? ayahNumber : ayahNumber - 1;
+  int _pageIndexForAyah(int ayahNumber) => ayahNumber - 1;
 
   void _goToAyah(int ayahNumber) {
     _pageController.animateToPage(
@@ -139,7 +138,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
 
   ReadingProgress _resumePositionAt(int index) => ReadingProgress(
         surahNumber: widget.initialSurahNumber,
-        ayahNumber: _isBismillahPage(index) ? 1 : (_hasBismillah ? index : index + 1),
+        ayahNumber: index + 1,
       );
 
   void _recordPage(int index) {
@@ -266,7 +265,6 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   Widget build(BuildContext context) {
     final appState = context.read<AppState>();
     final surah = appState.quran.surahByNumber(widget.initialSurahNumber);
-    final onBismillah = _isBismillahPage(_currentIndex);
     final content = _contentAt(_currentIndex);
     final juzProgress = appState.quran.juzProgressFor(content.surahNumber, content.ayahNumber);
 
@@ -274,9 +272,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
       appBar: AppBar(
         elevation: 0,
         title: Text(
-          onBismillah
-              ? surah.englishName
-              : '${surah.englishName} · ${_ayahNumberForDisplay(_currentIndex)}/${_ayahs.length}',
+          '${surah.englishName} · ${_ayahNumberForDisplay(_currentIndex)}/${_ayahs.length}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         actions: [
@@ -301,7 +297,10 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
               controller: _pageController,
               itemCount: _pageCount,
               onPageChanged: _onPageChanged,
-              itemBuilder: (context, index) => _AyahPage(ayah: _contentAt(index)),
+              itemBuilder: (context, index) => _AyahPage(
+                ayah: _contentAt(index),
+                bismillahText: _showsBismillah(index) ? _bismillahText : null,
+              ),
             ),
           ),
           _NavigationBar(
@@ -388,8 +387,9 @@ class _StatChip extends StatelessWidget {
 
 class _AyahPage extends StatelessWidget {
   final Ayah ayah;
+  final String? bismillahText;
 
-  const _AyahPage({required this.ayah});
+  const _AyahPage({required this.ayah, this.bismillahText});
 
   @override
   Widget build(BuildContext context) {
@@ -407,6 +407,15 @@ class _AyahPage extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (bismillahText != null) ...[
+                    Text(
+                      bismillahText!,
+                      textDirection: TextDirection.rtl,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontFamily: 'QuranNaskh', fontSize: 22, height: 1.6, color: colorScheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(28),

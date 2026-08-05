@@ -33,7 +33,7 @@ that also means: if you uninstall the app, it's gone. there's no cloud backup to
 
 ## trying it out
 
-[download the apk](https://github.com/afnanpvt/wird/releases/download/v1.1.0/wird.apk) and install it. android will probably warn you about installing from outside the play store since this isn't signed with a play store key, that's expected for a small independent project like this, not a red flag.
+[download the apk](https://github.com/afnanpvt/wird/releases/download/v1.1.1/wird-v1.1.1.apk) and install it. android will probably warn you about installing from outside the play store since this isn't signed with a play store key, that's expected for a small independent project like this, not a red flag.
 
 if you'd rather build it yourself, it's a standard flutter project:
 

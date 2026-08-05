@@ -22,9 +22,13 @@ All solid/outlined/filled buttons (primary CTAs, nav arrows, "I'm done") are **m
 ## Typography
 
 - UI family: **Inter** (400/500/600/700). One family carries headings, labels, body, buttons.
-- Quran Arabic family: **Noto Naskh Arabic** — same font family Android ships as its native Arabic fallback, so GPOS mark-to-base/mark-to-mark positioning is guaranteed correct. Do not swap to a Nastaleeq-style font: Nastaleeq requires exotic contextual shaping that most mobile text-rendering stacks (including Android's) don't fully implement, causing combining marks to collide with base diacritics instead of stacking cleanly. Naskh fonts don't have this problem. Confirmed full glyph coverage (including the Arabic Extended-A marks this Indo-Pak text needs) via direct cmap inspection before adopting.
+- Quran Arabic family: **QuranNastaleeq** (AlQuran IndoPak by QuranWBW, based on Al Qalam Quran Majeed, sourced from QUL/Tarteel) — an authentic Indo-Pak Nastaleeq font, paired with matching Indo-Pak text from quran.com's `text_indopak` (via the QUL script data).
+
+  An earlier version of this app used KFGQPC Nastaleeq-Full and hit real mark-collision bugs (small superscript letters overlapping base diacritics), which was mistakenly diagnosed as "mobile text stacks can't shape Nastaleeq" and worked around by downgrading to generic Noto Naskh Arabic. That diagnosis was wrong: Flutter bundles its own HarfBuzz and shapes identically on every platform, so there was no engine limitation to route around. The actual bug was in the font file — KFGQPC Nastaleeq misclassifies several combining marks (U+0614, U+0615, U+0617, U+06D6, U+06ED) as GDEF *base* glyphs instead of *mark* glyphs, so HarfBuzz never attaches them via `mark`/`mkmk` lookups. The `-Full` variant made it worse: merging it with Noto Sans Arabic via fonttools is documented to break `mkmk` entirely. The fix was a font with correct GDEF/GPOS tables, not a different script style — verified via direct GDEF/GPOS inspection (fontTools) before adopting, not just glyph-coverage checks.
+
+  Do not pair this font with the old `fawazahmed0/quran-api` Indo-Pak text — it uses 13 codepoints (notably U+0658) this font doesn't cover, which forces font fallback and reintroduces the same collision. Font and text must come from the same lineage (QUL/quran.com).
 - Bold, confident numerals for the streak count (Inter ExtraBold, tight negative letter-spacing) — the hero element of the home screen.
-- Arabic ayah text sized independently (larger, generous line-height ~1.9) since it is content, not UI chrome.
+- Arabic ayah text sized independently (larger, generous line-height ~2.0–2.2 to give stacked Nastaleeq marks room) since it is content, not UI chrome. No `fontFamilyFallback`, no `letterSpacing`/`wordSpacing` on Quran text — both interfere with mark positioning.
 
 ## Layout
 

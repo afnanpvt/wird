@@ -86,21 +86,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> addReadingSeconds(int seconds) => _streakService.addReadingSeconds(seconds);
 
-  double get quranCompletionRatio =>
-      quran.totalAyahCount == 0 ? 0 : _streakService.uniqueAyahsRead() / quran.totalAyahCount;
+  int get sessionCount => _streakService.getSessionCount();
 
-  int get surahsFinishedCount {
-    var count = 0;
-    for (final surah in quran.surahs) {
-      var complete = true;
-      for (var ayah = 1; ayah <= surah.ayahCount; ayah++) {
-        if (!_streakService.isAyahRead(surah.number, ayah)) {
-          complete = false;
-          break;
-        }
-      }
-      if (complete) count++;
-    }
-    return count;
-  }
+  Future<void> recordSessionStarted() => _streakService.recordSessionStarted();
 }

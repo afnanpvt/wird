@@ -123,4 +123,11 @@ class StreakService {
 
   Future<void> addReadingSeconds(int seconds) =>
       _streakBox.put('totalReadingSeconds', getTotalReadingSeconds() + seconds);
+
+  /// Number of times a reading screen has been opened. Counted at session
+  /// start rather than on "I'm done", since many sessions end by just
+  /// navigating away.
+  int getSessionCount() => _streakBox.get('sessionCount') as int? ?? 0;
+
+  Future<void> recordSessionStarted() => _streakBox.put('sessionCount', getSessionCount() + 1);
 }

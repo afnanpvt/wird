@@ -7,6 +7,14 @@ import 'reading_screen.dart';
 import 'settings_screen.dart';
 import 'browse_screen.dart';
 
+String _formatDuration(int totalSeconds) {
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  if (hours > 0) return '${hours}h ${minutes}m';
+  if (minutes > 0) return '${minutes}m';
+  return '${totalSeconds}s';
+}
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -111,8 +119,8 @@ class HomeScreen extends StatelessWidget {
                 label: 'OVERALL',
                 stats: [
                   _Stat('Best streak', '${appState.longestStreak}'),
-                  _Stat('Quran read', '${(appState.quranCompletionRatio * 100).round()}%'),
-                  _Stat('Surahs done', '${appState.surahsFinishedCount}'),
+                  _Stat('Sessions', '${appState.sessionCount}'),
+                  _Stat('Time reading', _formatDuration(appState.totalReadingSeconds)),
                 ],
               ),
               const SizedBox(height: 24),
@@ -242,7 +250,7 @@ class _VerseOfTheDayState extends State<_VerseOfTheDay> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    const arabicStyle = TextStyle(fontFamily: 'QuranNaskh', fontSize: 24, height: 1.6);
+    const arabicStyle = TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 24, height: 2.1);
     final englishStyle = TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurface);
 
     return Material(

@@ -98,9 +98,9 @@ flutter:
           weight: 600
         - asset: assets/fonts/Inter-Bold.ttf
           weight: 700
-    - family: QuranNaskh
+    - family: QuranNastaleeq
       fonts:
-        - asset: assets/fonts/NotoNaskhArabic.ttf
+        - asset: assets/fonts/IndoPakNastaleeq.ttf
           weight: 400
 
   # To add custom fonts to your application, add a fonts section here,

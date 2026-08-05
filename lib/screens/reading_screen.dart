@@ -62,6 +62,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _sessionAyahCount = 1;
     _elapsed = Duration(seconds: context.read<AppState>().totalReadingSeconds);
     _recordPage(_currentIndex);
+    context.read<AppState>().recordSessionStarted();
     _startTicker();
   }
 
@@ -412,7 +413,7 @@ class _AyahPage extends StatelessWidget {
                       bismillahText!,
                       textDirection: TextDirection.rtl,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontFamily: 'QuranNaskh', fontSize: 22, height: 1.6, color: colorScheme.onSurfaceVariant),
+                      style: TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 22, height: 2.1, color: colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -428,7 +429,7 @@ class _AyahPage extends StatelessWidget {
                       ayah.arabicText,
                       textDirection: TextDirection.rtl,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontFamily: 'QuranNaskh', fontSize: 32, height: 1.9),
+                      style: const TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 32, height: 2.2),
                     ),
                   ),
                   const SizedBox(height: 16),

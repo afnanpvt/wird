@@ -47,7 +47,7 @@ class _SurahListView extends StatelessWidget {
           trailing: Text(
             surah.arabicName,
             textDirection: TextDirection.rtl,
-            style: const TextStyle(fontFamily: 'QuranNaskh', fontSize: 18),
+            style: const TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 18, height: 1.8),
           ),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
@@ -92,7 +92,7 @@ class _JuzListView extends StatelessWidget {
               Text(
                 juz.arabicName,
                 textDirection: TextDirection.rtl,
-                style: TextStyle(fontFamily: 'QuranNaskh', fontSize: 15, color: colorScheme.primary),
+                style: TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 15, height: 1.8, color: colorScheme.primary),
               ),
             ],
           ),

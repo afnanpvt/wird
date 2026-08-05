@@ -88,7 +88,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Image.asset('assets/images/logo_foreground.png', height: 28),
+              Image.asset(
+                Theme.of(context).brightness == Brightness.dark
+                    ? 'assets/images/logo_foreground_dark.png'
+                    : 'assets/images/logo_foreground.png',
+                height: 44,
+              ),
               const SizedBox(height: 8),
               Text('built by afnan', style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
             ],

@@ -54,6 +54,8 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   image_path: "assets/images/icon.png"
+  adaptive_icon_background: "#FAF7F2"
+  adaptive_icon_foreground: "assets/images/logo_foreground.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -76,7 +78,7 @@ flutter:
     - assets/data/quran_en_simple.json
     - assets/data/surah_list.json
     - assets/data/juz_starts.json
-    - assets/images/logo.png
+    - assets/images/logo_foreground.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

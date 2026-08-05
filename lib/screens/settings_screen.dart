@@ -85,21 +85,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 48),
           Text('ABOUT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 14),
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset('assets/images/logo.png', height: 36, width: 36, fit: BoxFit.cover),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('wird.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
-                  const SizedBox(height: 2),
-                  Text('built by afnan', style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
-                ],
-              ),
+              Image.asset('assets/images/logo_foreground.png', height: 28),
+              const SizedBox(height: 8),
+              Text('built by afnan', style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
             ],
           ),
           const SizedBox(height: 20),

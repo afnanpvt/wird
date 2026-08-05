@@ -10,7 +10,7 @@ Future<void> showWelcomeDialog(BuildContext context, {required bool isFirstLaunc
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/images/logo.png', height: 56),
+            Image.asset('assets/images/logo_foreground.png', height: 40),
             const SizedBox(height: 16),
             Text(
               isFirstLaunch ? 'Welcome to wird.' : 'Welcome back',

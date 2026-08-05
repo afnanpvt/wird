@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../main.dart';
 import '../models/ayah.dart';
 import '../models/juz_progress.dart';
 import '../models/reading_progress.dart';
@@ -32,18 +33,19 @@ class ReadingScreen extends StatefulWidget {
   State<ReadingScreen> createState() => _ReadingScreenState();
 }
 
-class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserver {
+class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserver, RouteAware {
   late final List<Ayah> _ayahs;
   late final bool _hasBismillah;
-  late final Ayah _bismillah;
+  late final String _bismillahText;
   late final PageController _pageController;
   late int _currentIndex;
+  late bool _tracksContinue;
   int _sessionAyahCount = 0;
 
   Duration _elapsed = Duration.zero;
   Timer? _ticker;
 
-  int get _pageCount => _ayahs.length + (_hasBismillah ? 1 : 0);
+  int get _pageCount => _ayahs.length;
 
   @override
   void initState() {
@@ -52,11 +54,11 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     final quran = context.read<AppState>().quran;
     _ayahs = quran.ayahsForSurah(widget.initialSurahNumber);
     _hasBismillah = widget.initialSurahNumber != 1 && !_surahsWithoutBismillah.contains(widget.initialSurahNumber);
-    _bismillah = quran.ayahsForSurah(1).first;
+    _bismillahText = quran.ayahsForSurah(1).first.arabicText;
 
-    final startAyahIndex = (widget.initialAyahNumber - 1).clamp(0, _ayahs.length - 1);
-    _currentIndex = _hasBismillah && widget.initialAyahNumber <= 1 ? 0 : startAyahIndex + (_hasBismillah ? 1 : 0);
+    _currentIndex = (widget.initialAyahNumber - 1).clamp(0, _ayahs.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
+    _tracksContinue = widget.updatesContinuePoint;
     _sessionAyahCount = 1;
     _elapsed = Duration(seconds: context.read<AppState>().totalReadingSeconds);
     _recordPage(_currentIndex);
@@ -64,12 +66,29 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute<void>);
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    routeObserver.unsubscribe(this);
     _pageController.dispose();
     _ticker?.cancel();
     super.dispose();
   }
+
+  /// Another route (e.g. the next surah's reading screen) was pushed on top
+  /// of this one. This screen is still alive underneath for back-navigation,
+  /// so its ticker must stop or it'd double-count reading time alongside
+  /// the new screen's own ticker.
+  @override
+  void didPushNext() => _stopTicker();
+
+  @override
+  void didPopNext() => _startTicker();
 
   void _startTicker() {
     _ticker?.cancel();
@@ -85,23 +104,82 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _ticker = null;
   }
 
-  bool _isBismillahPage(int index) => _hasBismillah && index == 0;
+  bool _showsBismillah(int index) => _hasBismillah && index == 0;
 
-  Ayah _contentAt(int index) => _isBismillahPage(index) ? _bismillah : _ayahs[_hasBismillah ? index - 1 : index];
+  Ayah _contentAt(int index) => _ayahs[index];
 
-  int _ayahNumberForDisplay(int index) => _hasBismillah ? index : index + 1;
+  int _ayahNumberForDisplay(int index) => index + 1;
+
+  int _pageIndexForAyah(int ayahNumber) => ayahNumber - 1;
+
+  void _goToAyah(int ayahNumber) {
+    _pageController.animateToPage(
+      _pageIndexForAyah(ayahNumber),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  Future<void> _showJumpToAyahSheet() async {
+    final currentAyah = _ayahNumberForDisplay(_currentIndex).clamp(1, _ayahs.length);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => _JumpToAyahSheet(
+        totalAyahs: _ayahs.length,
+        initialAyah: currentAyah,
+        onGo: (ayahNumber) {
+          Navigator.of(sheetContext).pop();
+          _goToAyah(ayahNumber);
+        },
+      ),
+    );
+  }
 
   ReadingProgress _resumePositionAt(int index) => ReadingProgress(
         surahNumber: widget.initialSurahNumber,
-        ayahNumber: _isBismillahPage(index) ? 1 : (_hasBismillah ? index : index + 1),
+        ayahNumber: index + 1,
       );
 
   void _recordPage(int index) {
     final content = _contentAt(index);
     final appState = context.read<AppState>();
     appState.recordAyahRead(content.surahNumber, content.ayahNumber);
-    if (widget.updatesContinuePoint) {
+    if (_tracksContinue) {
       appState.saveLastPosition(_resumePositionAt(index));
+    }
+  }
+
+  Future<void> _confirmSetAsContinueReading() async {
+    final appState = context.read<AppState>();
+    final surah = appState.quran.surahByNumber(widget.initialSurahNumber);
+    final position = _resumePositionAt(_currentIndex);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Update your reading progress?'),
+        content: Text(
+          "This sets ${surah.englishName} · ayah ${position.ayahNumber} as where wird resumes from on your home screen. "
+          "If you're just reading this casually, you can leave your progress where it is.",
+        ),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Just browsing'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Set as my progress'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      setState(() => _tracksContinue = true);
+      await appState.saveLastPosition(position);
     }
   }
 
@@ -111,11 +189,13 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     // never counted while the app isn't actually in front of the user.
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       _stopTicker();
-      if (widget.updatesContinuePoint) {
+      if (_tracksContinue) {
         context.read<AppState>().saveLastPosition(_resumePositionAt(_currentIndex));
       }
     } else if (state == AppLifecycleState.resumed) {
-      _startTicker();
+      if ((ModalRoute.of(context) as PageRoute<void>?)?.isCurrent ?? false) {
+        _startTicker();
+      }
     }
   }
 
@@ -139,7 +219,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
         ReadingScreen(
           initialSurahNumber: widget.initialSurahNumber + 1,
           initialAyahNumber: 1,
-          updatesContinuePoint: widget.updatesContinuePoint,
+          updatesContinuePoint: _tracksContinue,
         ),
       ));
     }
@@ -185,7 +265,6 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   Widget build(BuildContext context) {
     final appState = context.read<AppState>();
     final surah = appState.quran.surahByNumber(widget.initialSurahNumber);
-    final onBismillah = _isBismillahPage(_currentIndex);
     final content = _contentAt(_currentIndex);
     final juzProgress = appState.quran.juzProgressFor(content.surahNumber, content.ayahNumber);
 
@@ -193,11 +272,22 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
       appBar: AppBar(
         elevation: 0,
         title: Text(
-          onBismillah
-              ? surah.englishName
-              : '${surah.englishName} · ${_ayahNumberForDisplay(_currentIndex)}/${_ayahs.length}',
+          '${surah.englishName} · ${_ayahNumberForDisplay(_currentIndex)}/${_ayahs.length}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
+        actions: [
+          if (!_tracksContinue)
+            IconButton(
+              tooltip: 'Update reading progress',
+              icon: const Icon(Icons.bookmark_add_outlined),
+              onPressed: _confirmSetAsContinueReading,
+            ),
+          IconButton(
+            tooltip: 'Jump to ayah',
+            icon: const Icon(Icons.format_list_numbered_rounded),
+            onPressed: _showJumpToAyahSheet,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -207,7 +297,10 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
               controller: _pageController,
               itemCount: _pageCount,
               onPageChanged: _onPageChanged,
-              itemBuilder: (context, index) => _AyahPage(ayah: _contentAt(index)),
+              itemBuilder: (context, index) => _AyahPage(
+                ayah: _contentAt(index),
+                bismillahText: _showsBismillah(index) ? _bismillahText : null,
+              ),
             ),
           ),
           _NavigationBar(
@@ -294,8 +387,9 @@ class _StatChip extends StatelessWidget {
 
 class _AyahPage extends StatelessWidget {
   final Ayah ayah;
+  final String? bismillahText;
 
-  const _AyahPage({required this.ayah});
+  const _AyahPage({required this.ayah, this.bismillahText});
 
   @override
   Widget build(BuildContext context) {
@@ -313,6 +407,15 @@ class _AyahPage extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (bismillahText != null) ...[
+                    Text(
+                      bismillahText!,
+                      textDirection: TextDirection.rtl,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontFamily: 'QuranNaskh', fontSize: 22, height: 1.6, color: colorScheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(28),
@@ -417,6 +520,76 @@ class _NavigationBar extends StatelessWidget {
             ),
             onPressed: canGoForward ? onForward : null,
             icon: const Icon(Icons.arrow_forward_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JumpToAyahSheet extends StatefulWidget {
+  final int totalAyahs;
+  final int initialAyah;
+  final ValueChanged<int> onGo;
+
+  const _JumpToAyahSheet({
+    required this.totalAyahs,
+    required this.initialAyah,
+    required this.onGo,
+  });
+
+  @override
+  State<_JumpToAyahSheet> createState() => _JumpToAyahSheetState();
+}
+
+class _JumpToAyahSheetState extends State<_JumpToAyahSheet> {
+  late int _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialAyah;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Jump to ayah',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Ayah $_selected of ${widget.totalAyahs}',
+            style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
+          ),
+          Slider(
+            value: _selected.toDouble(),
+            min: 1,
+            max: widget.totalAyahs.toDouble(),
+            divisions: widget.totalAyahs > 1 ? widget.totalAyahs - 1 : null,
+            label: '$_selected',
+            onChanged: (value) => setState(() => _selected = value.round()),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.onSurface,
+                foregroundColor: colorScheme.surface,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              onPressed: () => widget.onGo(_selected),
+              child: const Text('Go'),
+            ),
           ),
         ],
       ),

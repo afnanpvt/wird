@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'services/app_state.dart';
 import 'services/hive_service.dart';
+import 'widgets/welcome_dialog.dart';
+
+final routeObserver = RouteObserver<PageRoute<void>>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +54,7 @@ class WirdApp extends StatelessWidget {
       themeMode: themeMode,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
+      navigatorObservers: [routeObserver],
       home: const _Bootstrap(),
     );
   }
@@ -104,6 +108,8 @@ class _Bootstrap extends StatefulWidget {
 }
 
 class _BootstrapState extends State<_Bootstrap> {
+  bool _welcomeChecked = false;
+
   @override
   void initState() {
     super.initState();
@@ -112,9 +118,20 @@ class _BootstrapState extends State<_Bootstrap> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoaded = context.watch<AppState>().isLoaded;
-    if (!isLoaded) {
+    final appState = context.watch<AppState>();
+    if (!appState.isLoaded) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (!_welcomeChecked) {
+      _welcomeChecked = true;
+      final kind = appState.checkWelcomeModal();
+      if (kind != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          await showWelcomeDialog(context, isFirstLaunch: kind == 'first');
+          await appState.markWelcomeModalShown();
+        });
+      }
     }
     return const HomeScreen();
   }

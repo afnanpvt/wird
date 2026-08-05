@@ -33,7 +33,7 @@ that also means: if you uninstall the app, it's gone. there's no cloud backup to
 
 ## trying it out
 
-[download the apk](https://github.com/afnanpvt/wird/raw/main/dist/wird.apk) and install it. android will probably warn you about installing from outside the play store since this isn't signed with a play store key, that's expected for a small independent project like this, not a red flag.
+[download the apk](https://github.com/afnanpvt/wird/releases/download/v1.1.0/wird.apk) and install it. android will probably warn you about installing from outside the play store since this isn't signed with a play store key, that's expected for a small independent project like this, not a red flag.
 
 if you'd rather build it yourself, it's a standard flutter project:
 
@@ -51,6 +51,10 @@ purposeful contributions are welcome. bug fixes, better translations, accessibil
 a couple of things worth knowing before you open a pr: this project handles quranic text, so accuracy matters more than usual. if you're touching anything related to the arabic text, translations, or how verses are numbered, please double-check your sources and say what you checked. and since this is meant to stay a calm, quiet app, features that add noise, tracking, ads, or anything that isn't in service of someone actually reading more consistently probably aren't the right fit here.
 
 open an issue first if you're planning something big, so we're not duplicating effort.
+
+## feedback or issues
+
+afnan.wird@gmail.com, or open an issue here on github. either works.
 
 ## a note on why this exists
 

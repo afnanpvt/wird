@@ -1,5 +1,7 @@
 # wird
 
+![wird — build a lasting relationship with the quran](docs/hero.webp)
+
 a quran reading app for one person: whoever's holding the phone.
 
 ## what is this

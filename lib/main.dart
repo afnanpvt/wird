@@ -47,6 +47,7 @@ class WirdApp extends StatelessWidget {
 
     return MaterialApp(
       title: 'wird.',
+      debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),

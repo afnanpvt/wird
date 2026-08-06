@@ -436,7 +436,7 @@ class _AyahPage extends StatelessWidget {
                     _SpacedArabicText(
                       text: bismillahText!,
                       spacing: 8,
-                      style: TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 22, height: 2.1, color: colorScheme.onSurfaceVariant),
+                      style: TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 27, height: 2.1, color: colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -451,7 +451,7 @@ class _AyahPage extends StatelessWidget {
                     child: _SpacedArabicText(
                       text: ayah.arabicText,
                       spacing: 12,
-                      style: const TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 32, height: 2.2),
+                      style: const TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 42, height: 2.2),
                     ),
                   ),
                   const SizedBox(height: 16),

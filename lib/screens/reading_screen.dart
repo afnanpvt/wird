@@ -386,6 +386,30 @@ class _StatChip extends StatelessWidget {
   }
 }
 
+/// Arabic word-spacing via [Wrap] gaps, not [TextStyle.letterSpacing]/[wordSpacing] -
+/// both are no-ops for RTL script on this Flutter engine (flutter/flutter#177406).
+class _SpacedArabicText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+  final double spacing;
+
+  const _SpacedArabicText({required this.text, required this.style, this.spacing = 10});
+
+  @override
+  Widget build(BuildContext context) {
+    final words = text.split(' ').where((w) => w.isNotEmpty).toList();
+    return Wrap(
+      textDirection: TextDirection.rtl,
+      alignment: WrapAlignment.center,
+      spacing: spacing,
+      runSpacing: 8,
+      children: [
+        for (final word in words) Text(word, textDirection: TextDirection.rtl, style: style),
+      ],
+    );
+  }
+}
+
 class _AyahPage extends StatelessWidget {
   final Ayah ayah;
   final String? bismillahText;
@@ -409,10 +433,9 @@ class _AyahPage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (bismillahText != null) ...[
-                    Text(
-                      bismillahText!,
-                      textDirection: TextDirection.rtl,
-                      textAlign: TextAlign.center,
+                    _SpacedArabicText(
+                      text: bismillahText!,
+                      spacing: 8,
                       style: TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 22, height: 2.1, color: colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 20),
@@ -425,10 +448,9 @@ class _AyahPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(24),
                     ),
                     alignment: Alignment.center,
-                    child: Text(
-                      ayah.arabicText,
-                      textDirection: TextDirection.rtl,
-                      textAlign: TextAlign.center,
+                    child: _SpacedArabicText(
+                      text: ayah.arabicText,
+                      spacing: 12,
                       style: const TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 32, height: 2.2),
                     ),
                   ),

@@ -1,0 +1,49 @@
+PDMS Saleem Quran Font
+(C) 2007 Pakistan Data Management Services (PDMS), www.pakdata.com
+
+This font was chosen after comparing four Indo-Pak Nastaleeq candidates
+glyph-by-glyph. It is the only one that gets BOTH things right at once:
+
+  1. Correct GDEF mark classification (no combining-mark collisions -
+     the bug that forced an earlier retreat to generic Naskh).
+  2. Correct artwork for U+06E1 (the jazm/"jera" mark used ~62,000 times
+     throughout the Quran, functioning as the primary Indo-Pak
+     no-vowel marker) - drawn as the authentic open hook, not a closed
+     circle. Two other candidates (the previously-bundled "AlQuran
+     IndoPak by QuranWBW", and a v4.2.2 variant of the same lineage)
+     draw this specific glyph as a plain circle, which is not the
+     Indo-Pak Mushaf convention.
+
+Known gap: this font has no glyph for U+0614 (ARABIC SIGN TAKHALLUS),
+used in exactly 5 places in the whole Quran (6:124, 12:108, 36:30,
+41:44, 59:2 - the classical "Sakta" pause markers). Those 5 spots will
+render via system font fallback instead of this font. Every other
+codepoint the app's Indo-Pak text actually uses is covered - verified
+by checking every unique codepoint in assets/data/quran_ar_indopak.json
+against this font's cmap.
+
+LICENSE - this is NOT a permissive license:
+
+  "The Font is provided free of cost from PDMS website
+  (www.pakdata.com), but PDMS retains all rights of the Font. You
+  cannot distribute the Font without obtaining a proper distribution
+  license from PDMS." - full EULA embedded in the font's own name
+  table (nameID 13).
+
+The font previously bundled here (AlQuran IndoPak by QuranWBW) carried
+an equivalent restriction ("NOT FOR... DISTRIBUTION... WITHOUT WRITTEN
+NOTICE BY QURANWBW.COM"), so this is not a new category of risk, just
+a continuation of an existing one - authentic Indo-Pak Quran fonts are
+essentially never released under FOSS-compatible licenses, for reasons
+tied to concerns about textual accuracy and tampering with the Quran.
+
+If distributing via F-Droid: tag the app with the NonFreeAssets
+anti-feature (https://f-droid.org/en/docs/Anti-Features/). This is the
+standard, common path for Quran apps generally.
+
+If a truly FOSS-licensed Indo-Pak Nastaleeq font with correct mark
+shapes surfaces later, prefer it over this. Checked and ruled out
+during this evaluation: KFGQPC Nastaleeq (correct U+06E1 glyph, but
+misclassifies 5 other marks as base glyphs in GDEF, causing collisions
+- and its own EULA is also non-free, just more redistribution-
+permissive: free copy/distribute, no modification).

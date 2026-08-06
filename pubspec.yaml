@@ -100,7 +100,7 @@ flutter:
           weight: 700
     - family: QuranNastaleeq
       fonts:
-        - asset: assets/fonts/IndoPakNastaleeq.ttf
+        - asset: assets/fonts/PDMSSaleemQuran.ttf
           weight: 400
 
   # To add custom fonts to your application, add a fonts section here,

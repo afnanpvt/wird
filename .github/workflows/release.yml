@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Decode app signing keystore
+        run: |
+          echo "${{ secrets.WIRD_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/wird-release.jks"
+
+      - name: Build signed release APK
+        env:
+          WIRD_KEYSTORE_PATH: ${{ runner.temp }}/wird-release.jks
+          WIRD_KEYSTORE_PASSWORD: ${{ secrets.WIRD_KEYSTORE_PASSWORD }}
+          WIRD_KEY_ALIAS: ${{ secrets.WIRD_KEY_ALIAS }}
+          WIRD_KEY_PASSWORD: ${{ secrets.WIRD_KEY_PASSWORD }}
+        run: |
+          flutter pub get
+          flutter build apk --release
+
+      - name: Attach APK to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
+
+      - name: Set up Python for fdroidserver
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install fdroidserver
+        run: pip install fdroidserver
+
+      - name: Locate apksigner
+        id: apksigner
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME" -iname "apksigner" -type f | sort -V | tail -1)
+          echo "path=$APKSIGNER" >> "$GITHUB_OUTPUT"
+
+      - name: Decode F-Droid repo signing keystore and write config
+        run: |
+          mkdir -p fdroid/keystore-local
+          echo "${{ secrets.FDROID_REPO_KEYSTORE_BASE64 }}" | base64 -d > fdroid/keystore-local/repo-keystore.p12
+          cat > fdroid/config.yml <<EOF
+          repo_url: "https://afnanpvt.github.io/wird/repo"
+          repo_name: "Wird"
+          repo_description: >
+            Self-hosted F-Droid repo for Wird, a minimal daily Quran reading
+            habit tracker. Add this repo URL in the F-Droid client to get
+            automatic updates.
+          archive_older: 0
+          keystore: keystore-local/repo-keystore.p12
+          keystorepass: ${{ secrets.FDROID_REPO_KEYSTORE_PASSWORD }}
+          keypass: ${{ secrets.FDROID_REPO_KEYSTORE_PASSWORD }}
+          repo_keyalias: repokey
+          keydname: CN=Wird F-Droid Repo, OU=Wird, O=Wird, L=Unknown, ST=Unknown, C=US
+          apksigner: ${{ steps.apksigner.outputs.path }}
+          EOF
+
+      - name: Build F-Droid repo index
+        run: |
+          mkdir -p fdroid/repo
+          cp build/app/outputs/flutter-apk/app-release.apk fdroid/repo/
+          cd fdroid
+          fdroid update --create-metadata -v
+
+      - name: Publish repo to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: fdroid/repo
+          destination_dir: repo
+          keep_files: false

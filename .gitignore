@@ -50,3 +50,15 @@ app.*.map.json
 /android/*.keystore
 *.jks
 *.keystore
+*.p12
+
+# F-Droid repo - config/keys are secrets, repo/archive/tmp/srclibs are all
+# fdroidserver working/generated output published separately to gh-pages.
+# Only fdroid/metadata/ belongs on main.
+/fdroid/config.yml
+/fdroid/keystore-local/
+/fdroid/repo/
+/fdroid/archive/
+/fdroid/tmp/
+/fdroid/srclibs/
+/fdroid/stats/

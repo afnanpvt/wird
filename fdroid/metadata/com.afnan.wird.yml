@@ -1,0 +1,31 @@
+Categories:
+  - Reading
+License: Unknown # TODO: no LICENSE file exists in the repo yet - pick one and set this to match
+SourceCode: https://github.com/afnanpvt/wird
+IssueTracker: https://github.com/afnanpvt/wird/issues
+
+AutoName: Wird
+Summary: A minimal daily Quran reading habit tracker
+Description: |
+  Wird helps you build a daily habit of reading the Quran. Tracks your
+  reading streak, session count, and time spent reading - no lifetime
+  completion percentage, no invented stats, just what the app can
+  honestly know about your reading.
+
+  Uses an authentic Indo-Pak Nastaleeq Quran text and font.
+
+RepoType: git
+Repo: https://github.com/afnanpvt/wird
+
+# This repo ships pre-built, pre-signed release APKs directly (see the
+# release workflow) rather than having fdroidserver build from source,
+# so there are no Build: entries here. AntiFeatures below reflect the
+# non-FOSS Quran font/text bundled as assets - see
+# assets/fonts/PDMSSaleemQuran-ATTRIBUTION.txt for why.
+AntiFeatures:
+  - NonFreeAssets
+
+AutoUpdateMode: None
+UpdateCheckMode: None
+CurrentVersion: 1.1.1
+CurrentVersionCode: 3

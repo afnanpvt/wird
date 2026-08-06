@@ -1,8 +1,20 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+val hasLocalKeystore = keystorePropertiesFile.exists()
+if (hasLocalKeystore) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+// CI provides the same values via env vars instead of a checked-in key.properties.
+val hasCiKeystore = System.getenv("WIRD_KEYSTORE_PATH") != null
 
 android {
     namespace = "com.afnan.wird"
@@ -25,11 +37,25 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasLocalKeystore || hasCiKeystore) {
+            create("release") {
+                storeFile = if (hasLocalKeystore) rootProject.file(keystoreProperties["storeFile"] as String)
+                    else file(System.getenv("WIRD_KEYSTORE_PATH")!!)
+                storePassword = if (hasLocalKeystore) keystoreProperties["storePassword"] as String
+                    else System.getenv("WIRD_KEYSTORE_PASSWORD")
+                keyAlias = if (hasLocalKeystore) keystoreProperties["keyAlias"] as String
+                    else System.getenv("WIRD_KEY_ALIAS")
+                keyPassword = if (hasLocalKeystore) keystoreProperties["keyPassword"] as String
+                    else System.getenv("WIRD_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasLocalKeystore || hasCiKeystore) signingConfigs.getByName("release")
+                else signingConfigs.getByName("debug")
         }
     }
 }

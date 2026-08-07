@@ -39,10 +39,15 @@ jobs:
           flutter pub get
           flutter build apk --release
 
+      - name: Name the release APK after the app and version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/wird-${VERSION}.apk"
+
       - name: Attach APK to the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: build/app/outputs/flutter-apk/wird-*.apk
           generate_release_notes: true
 
       - name: Set up Python for fdroidserver

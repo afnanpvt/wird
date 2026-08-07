@@ -18,18 +18,20 @@ if this feels inspired by the gamified habit apps you already know, it is. i jus
 
 ## get it
 
-**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/app-release.apk)** - starts downloading right away, no page in between. android will ask you to confirm installing from outside the play store, that's normal.
+**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/app-release.apk)**
+tap it, it downloads right away, no page in between.
 
-want updates without checking back? add `https://afnanpvt.github.io/wird/repo` as a repo in the [f-droid client](https://f-droid.org/) instead and it'll update itself. more detail in [trying it out](#trying-it-out) below.
+**or, for auto-updates: f-droid**
+add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid client](https://f-droid.org/), then install wird from there. it's a self-hosted repo rather than the main f-droid index, so you're trusting this project's own signing key instead of f-droid's review process - same tradeoff as any indie repo.
+
+either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
 ## what's new in 1.2.0
 
-- **three scripts to choose from** - indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed colour-coding. pick one when you first open the app, change it any time in settings, and preview each one before you commit.
-- **better indo-pak rendering** - the arabic text and the font it's paired with now come from the same source, which fixes letterforms and diacritic placement that were subtly wrong before. the lam-alif (`لا`) in particular now matches a printed mushaf.
-- **a proper first-run setup** - asks your name (optional), lets you pick your script, and gets out of the way. no accounts, still.
-- **a one-time tour** pointing out the three things worth knowing, then never again.
-- **a small celebration** when you finish a surah or juz.
-- **light mode is now the default** for new installs.
+- three quran scripts to choose from, picked during a proper first-run setup
+- better indo-pak rendering - the text and font finally come from the same source
+- a small celebration when you finish a surah or juz
+- light mode is now the default for new installs
 
 ## what it actually does
 
@@ -49,21 +51,6 @@ want updates without checking back? add `https://afnanpvt.github.io/wird/repo` a
 everything wird tracks, your streak, your progress, your reading position, lives in local storage on your device and nowhere else. no account, no login, no server, no cloud sync. i'm not interested in your data and i built it so i couldn't have it even if i wanted to.
 
 that also means: if you uninstall the app, it's gone. there's no cloud backup to restore from. that's the tradeoff for genuinely not collecting anything.
-
-## trying it out
-
-**f-droid (recommended, auto-updates):** add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [F-Droid client](https://f-droid.org/), then install wird from there like any other f-droid app. this is a self-hosted repo, not the main f-droid index, so you're trusting this project's own signing key rather than f-droid's review process, same tradeoff as any indie repo.
-
-**direct apk:** [download the latest apk](https://github.com/afnanpvt/wird/releases/latest/download/app-release.apk) directly, or browse [all releases](https://github.com/afnanpvt/wird/releases) if you want an older version. android will warn you about installing from outside the play store, that's expected for an independent project not distributed there, not a sign anything's wrong. every release apk is signed with the same key, so you'll get clean updates over the old install either way.
-
-if you'd rather build it yourself, it's a standard flutter project:
-
-```
-flutter pub get
-flutter run
-```
-
-you'll need flutter and the android toolchain set up. nothing unusual beyond that.
 
 ## contributing
 

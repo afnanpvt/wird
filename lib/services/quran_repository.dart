@@ -5,27 +5,31 @@ import 'package:flutter/services.dart';
 import '../models/ayah.dart';
 import '../models/juz.dart';
 import '../models/juz_progress.dart';
+import '../models/quran_script.dart';
 import '../models/surah.dart';
 
 class QuranRepository {
   List<Surah> _surahs = const [];
   List<Juz> _juzs = const [];
-  final Map<int, List<Ayah>> _ayahsBySurah = {};
-  final List<Ayah> _allAyahs = [];
-  final Map<String, int> _globalIndex = {};
+  Map<int, List<Ayah>> _ayahsBySurah = {};
+  List<Ayah> _allAyahs = [];
+  Map<String, int> _globalIndex = {};
+  QuranScript? _loadedScript;
 
-  Future<void> load() async {
-    if (_surahs.isNotEmpty) return;
+  Future<void> load(QuranScript script) async {
+    if (_loadedScript == script) return;
 
-    final surahJson = await rootBundle.loadString('assets/data/surah_list.json');
-    _surahs = (jsonDecode(surahJson) as List)
-        .map((e) => Surah.fromJson(e as Map<String, dynamic>))
-        .toList();
+    if (_surahs.isEmpty) {
+      final surahJson = await rootBundle.loadString('assets/data/surah_list.json');
+      _surahs = (jsonDecode(surahJson) as List)
+          .map((e) => Surah.fromJson(e as Map<String, dynamic>))
+          .toList();
 
-    final juzJson = await rootBundle.loadString('assets/data/juz_starts.json');
-    _juzs = (jsonDecode(juzJson) as List).map((e) => Juz.fromJson(e as Map<String, dynamic>)).toList();
+      final juzJson = await rootBundle.loadString('assets/data/juz_starts.json');
+      _juzs = (jsonDecode(juzJson) as List).map((e) => Juz.fromJson(e as Map<String, dynamic>)).toList();
+    }
 
-    final arabicJson = await rootBundle.loadString('assets/data/quran_ar_indopak.json');
+    final arabicJson = await rootBundle.loadString(script.dataAsset);
     final arabicVerses = (jsonDecode(arabicJson) as Map<String, dynamic>)['quran'] as List;
 
     final englishJson = await rootBundle.loadString('assets/data/quran_en_saheeh.json');
@@ -33,6 +37,10 @@ class QuranRepository {
 
     final simpleJson = await rootBundle.loadString('assets/data/quran_en_simple.json');
     final simpleVerses = (jsonDecode(simpleJson) as Map<String, dynamic>)['quran'] as List;
+
+    final ayahsBySurah = <int, List<Ayah>>{};
+    final allAyahs = <Ayah>[];
+    final globalIndex = <String, int>{};
 
     for (var i = 0; i < arabicVerses.length; i++) {
       final ar = arabicVerses[i] as Map<String, dynamic>;
@@ -46,10 +54,15 @@ class QuranRepository {
         englishText: en['text'] as String,
         simpleEnglishText: simple['text'] as String,
       );
-      _ayahsBySurah.putIfAbsent(surahNumber, () => []).add(ayah);
-      _globalIndex['$surahNumber:${ayah.ayahNumber}'] = _allAyahs.length;
-      _allAyahs.add(ayah);
+      ayahsBySurah.putIfAbsent(surahNumber, () => []).add(ayah);
+      globalIndex['$surahNumber:${ayah.ayahNumber}'] = allAyahs.length;
+      allAyahs.add(ayah);
     }
+
+    _ayahsBySurah = ayahsBySurah;
+    _allAyahs = allAyahs;
+    _globalIndex = globalIndex;
+    _loadedScript = script;
   }
 
   int globalIndexOf(int surahNumber, int ayahNumber) => _globalIndex['$surahNumber:$ayahNumber'] ?? 0;

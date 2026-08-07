@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/quran_script.dart';
 import '../models/reading_progress.dart';
 import '../models/streak_state.dart';
 import 'progress_service.dart';
@@ -19,11 +20,13 @@ class AppState extends ChangeNotifier {
   StreakState streakState = const StreakState();
   ReadingProgress lastPosition = ReadingProgress.start;
   String? userName;
-  AppThemeMode themeMode = AppThemeMode.dark;
+  AppThemeMode themeMode = AppThemeMode.light;
   bool useSimpleTranslation = false;
+  QuranScript quranScript = QuranScript.indoPakNastaleeq;
 
   Future<void> init() async {
-    await quran.load();
+    quranScript = _settingsService.getScript();
+    await quran.load(quranScript);
     await _streakService.reconcileToYesterday();
     streakState = _streakService.getState();
     lastPosition = _progressService.getLastPosition();
@@ -33,6 +36,28 @@ class AppState extends ChangeNotifier {
     isLoaded = true;
     notifyListeners();
   }
+
+  Future<void> setScript(QuranScript script) async {
+    if (script == quranScript) return;
+    quranScript = script;
+    await quran.load(script);
+    await _settingsService.saveScript(script);
+    notifyListeners();
+  }
+
+  bool get hasCompletedOnboarding => _settingsService.getHasCompletedOnboarding();
+
+  Future<void> completeOnboarding({required String? name, required QuranScript script}) async {
+    userName = name?.trim().isEmpty ?? true ? null : name!.trim();
+    await _settingsService.saveName(userName ?? '');
+    await setScript(script);
+    await _settingsService.saveHasCompletedOnboarding();
+    notifyListeners();
+  }
+
+  bool get hasSeenCoachTour => _settingsService.getHasSeenCoachTour();
+
+  Future<void> markCoachTourSeen() => _settingsService.saveHasSeenCoachTour();
 
   Future<void> saveThemeMode(AppThemeMode mode) async {
     themeMode = mode;

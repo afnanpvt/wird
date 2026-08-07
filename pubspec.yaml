@@ -38,6 +38,7 @@ dependencies:
   hive_flutter: ^1.1.0
   provider: ^6.1.2
   path_provider: ^2.1.4
+  confetti: ^0.8.0
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +75,7 @@ flutter:
   #   - images/a_dot_ham.jpeg
   assets:
     - assets/data/quran_ar_indopak.json
+    - assets/data/quran_ar_uthmani.json
     - assets/data/quran_en_saheeh.json
     - assets/data/quran_en_simple.json
     - assets/data/surah_list.json
@@ -100,7 +102,13 @@ flutter:
           weight: 700
     - family: QuranNastaleeq
       fonts:
-        - asset: assets/fonts/PDMSSaleemQuran.ttf
+        - asset: assets/fonts/AlQuranIndoPakWBW.ttf
+    - family: AmiriQuran
+      fonts:
+        - asset: assets/fonts/AmiriQuran.ttf
+    - family: AmiriQuranColored
+      fonts:
+        - asset: assets/fonts/AmiriQuranColored.ttf
           weight: 400
 
   # To add custom fonts to your application, add a fonts section here,

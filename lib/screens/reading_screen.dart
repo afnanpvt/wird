@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:math';
 
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../main.dart';
 import '../models/ayah.dart';
 import '../models/juz_progress.dart';
+import '../models/quran_script.dart';
 import '../models/reading_progress.dart';
 import '../services/app_state.dart';
 import '../widgets/completion_dialog.dart';
@@ -40,7 +43,9 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   late final PageController _pageController;
   late int _currentIndex;
   late bool _tracksContinue;
+  late int _lastJuzNumber;
   int _sessionAyahCount = 0;
+  late final ConfettiController _confettiController;
 
   Duration _elapsed = Duration.zero;
   Timer? _ticker;
@@ -60,6 +65,8 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _pageController = PageController(initialPage: _currentIndex);
     _tracksContinue = widget.updatesContinuePoint;
     _sessionAyahCount = 1;
+    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+    _lastJuzNumber = quran.juzProgressFor(widget.initialSurahNumber, widget.initialAyahNumber).juzNumber;
     _elapsed = Duration(seconds: context.read<AppState>().totalReadingSeconds);
     _recordPage(_currentIndex);
     context.read<AppState>().recordSessionStarted();
@@ -77,6 +84,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     WidgetsBinding.instance.removeObserver(this);
     routeObserver.unsubscribe(this);
     _pageController.dispose();
+    _confettiController.dispose();
     _ticker?.cancel();
     super.dispose();
   }
@@ -204,6 +212,12 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     setState(() => _currentIndex = index);
     _sessionAyahCount++;
     _recordPage(index);
+    final content = _contentAt(index);
+    final juzNumber = context.read<AppState>().quran.juzProgressFor(content.surahNumber, content.ayahNumber).juzNumber;
+    if (juzNumber > _lastJuzNumber) {
+      _lastJuzNumber = juzNumber;
+      _confettiController.play();
+    }
   }
 
   void _goBack() {
@@ -216,13 +230,18 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
       return;
     }
     if (widget.initialSurahNumber < 114) {
-      Navigator.of(context).push(_surahTransitionRoute(
-        ReadingScreen(
-          initialSurahNumber: widget.initialSurahNumber + 1,
-          initialAyahNumber: 1,
-          updatesContinuePoint: _tracksContinue,
-        ),
-      ));
+      _confettiController.play();
+      // Let the burst actually be seen before the slide transition covers it.
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (!mounted) return;
+        Navigator.of(context).push(_surahTransitionRoute(
+          ReadingScreen(
+            initialSurahNumber: widget.initialSurahNumber + 1,
+            initialAyahNumber: 1,
+            updatesContinuePoint: _tracksContinue,
+          ),
+        ));
+      });
     }
   }
 
@@ -290,26 +309,53 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          _JuzProgressHeader(progress: juzProgress, sessionAyahCount: _sessionAyahCount, elapsedLabel: _elapsedLabel),
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: _pageCount,
-              onPageChanged: _onPageChanged,
-              itemBuilder: (context, index) => _AyahPage(
-                ayah: _contentAt(index),
-                bismillahText: _showsBismillah(index) ? _bismillahText : null,
+          Column(
+            children: [
+              _JuzProgressHeader(progress: juzProgress, sessionAyahCount: _sessionAyahCount, elapsedLabel: _elapsedLabel),
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: _pageCount,
+                  onPageChanged: _onPageChanged,
+                  itemBuilder: (context, index) => _AyahPage(
+                    ayah: _contentAt(index),
+                    bismillahText: _showsBismillah(index) ? _bismillahText : null,
+                  ),
+                ),
+              ),
+              _NavigationBar(
+                canGoBack: _currentIndex > 0,
+                canGoForward: _currentIndex < _pageCount - 1 || widget.initialSurahNumber < 114,
+                onBack: _goBack,
+                onForward: _goForward,
+                onDone: _finishReading,
+              ),
+            ],
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirection: pi / 2,
+                blastDirectionality: BlastDirectionality.explosive,
+                numberOfParticles: 24,
+                maxBlastForce: 18,
+                minBlastForce: 6,
+                gravity: 0.25,
+                emissionFrequency: 0.04,
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.onSurface,
+                  Theme.of(context).colorScheme.outline,
+                ],
               ),
             ),
-          ),
-          _NavigationBar(
-            canGoBack: _currentIndex > 0,
-            canGoForward: _currentIndex < _pageCount - 1 || widget.initialSurahNumber < 114,
-            onBack: _goBack,
-            onForward: _goForward,
-            onDone: _finishReading,
           ),
         ],
       ),
@@ -397,6 +443,10 @@ class _SpacedArabicText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final script = context.watch<AppState>().quranScript;
+    if (!script.needsWordSpacing) {
+      return Text(text, textDirection: TextDirection.rtl, textAlign: TextAlign.center, style: style);
+    }
     final words = text.split(' ').where((w) => w.isNotEmpty).toList();
     return Wrap(
       textDirection: TextDirection.rtl,
@@ -436,7 +486,7 @@ class _AyahPage extends StatelessWidget {
                     _SpacedArabicText(
                       text: bismillahText!,
                       spacing: 8,
-                      style: TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 27, height: 2.1, color: colorScheme.onSurfaceVariant),
+                      style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 27, height: 2.1, color: colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -451,7 +501,7 @@ class _AyahPage extends StatelessWidget {
                     child: _SpacedArabicText(
                       text: ayah.arabicText,
                       spacing: 12,
-                      style: const TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 42, height: 2.2),
+                      style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 42, height: 2.2),
                     ),
                   ),
                   const SizedBox(height: 16),

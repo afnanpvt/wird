@@ -1,0 +1,14 @@
+Amiri Quran & Amiri Quran Colored
+
+Designed by Khaled Hosny, The Amiri Project Authors.
+Source: https://github.com/aliftype/amiri
+License: SIL Open Font License 1.1 (see Amiri-OFL.txt) - free to use,
+modify, and redistribute, including in commercial apps.
+
+Used for the "Uthmani" (AmiriQuran.ttf) and "Tajweed" (AmiriQuranColored.ttf,
+color-coded per Tajweed recitation rules) script options.
+
+Known gap: no glyph for U+065E (ARABIC FATHA WITH TWO DOTS), used ~1807
+times (0.26% of characters) in the paired Uthmani text - those spots fall
+back to the system font. Everything else is covered, with correct GDEF
+mark classification confirmed via fontTools before adopting.

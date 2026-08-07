@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/quran_script.dart';
 import '../services/app_state.dart';
 import 'reading_screen.dart';
 
@@ -29,6 +30,7 @@ class _SurahListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surahs = context.read<AppState>().quran.surahs;
+    final fontFamily = context.watch<AppState>().quranScript.fontFamily;
     final colorScheme = Theme.of(context).colorScheme;
 
     return ListView.separated(
@@ -47,7 +49,7 @@ class _SurahListView extends StatelessWidget {
           trailing: Text(
             surah.arabicName,
             textDirection: TextDirection.rtl,
-            style: const TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 18, height: 1.8),
+            style: TextStyle(fontFamily: fontFamily, fontSize: 18, height: 1.8),
           ),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
@@ -69,7 +71,7 @@ class _JuzListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = context.read<AppState>();
+    final appState = context.watch<AppState>();
     final juzs = appState.quran.juzs;
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -92,7 +94,7 @@ class _JuzListView extends StatelessWidget {
               Text(
                 juz.arabicName,
                 textDirection: TextDirection.rtl,
-                style: TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 15, height: 1.8, color: colorScheme.primary),
+                style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 15, height: 1.8, color: colorScheme.primary),
               ),
             ],
           ),

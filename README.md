@@ -18,9 +18,13 @@ if this feels inspired by the gamified habit apps you already know, it is. i jus
 
 ## what it actually does
 
-- reads the quran, arabic text alongside two english translations (saheeh international, and the clear quran for when the literal translation isn't clicking)
+- reads the quran in three different scripts, indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed color-coding, switchable anytime, each paired with a properly-sourced font and text so the actual letterforms and marks render correctly, not just "close enough"
+- arabic text alongside two english translations (saheeh international, and the clear quran for when the literal translation isn't clicking)
 - tracks a daily streak with a grace day built in, because missing one day shouldn't erase everything you built
-- shows real progress: how much of the quran you've actually read, not just how many times you tapped a page
+- honest stats only: current streak, sessions, time spent reading, ayahs read today/this week/total. no invented "% of quran read" number, because the app genuinely doesn't know your reading history from before you installed it, and pretending otherwise felt dishonest
+- a short first-time setup: your name (optional), pick a script, that's it, no accounts
+- a quiet first-run tour pointing at the three things worth knowing, shown once
+- a small celebration when you finish a surah or a juz, nothing that gets in the way of actually reading
 - lets you jump into any surah or juz without messing up where you were actually reading
 - keeps a running total of time spent reading, across every session, forever
 - remembers exactly where you left off and gets you back there in one tap
@@ -33,7 +37,9 @@ that also means: if you uninstall the app, it's gone. there's no cloud backup to
 
 ## trying it out
 
-[download the apk](https://github.com/afnanpvt/wird/releases/download/v1.1.1/wird-v1.1.1.apk) and install it. android will probably warn you about installing from outside the play store since this isn't signed with a play store key, that's expected for a small independent project like this, not a red flag.
+**f-droid (recommended, auto-updates):** add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [F-Droid client](https://f-droid.org/), then install wird from there like any other f-droid app. this is a self-hosted repo, not the main f-droid index, so you're trusting this project's own signing key rather than f-droid's review process, same tradeoff as any indie repo.
+
+**direct apk:** grab the latest from [github releases](https://github.com/afnanpvt/wird/releases) and install it. android will warn you about installing from outside the play store, that's expected for an independent project not distributed there, not a sign anything's wrong. every release apk is signed with the same key, so you'll get clean updates over the old install either way.
 
 if you'd rather build it yourself, it's a standard flutter project:
 

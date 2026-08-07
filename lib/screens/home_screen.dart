@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/ayah.dart';
+import '../models/quran_script.dart';
 import '../services/app_state.dart';
+import '../widgets/coach_tour.dart';
 import 'reading_screen.dart';
 import 'settings_screen.dart';
 import 'browse_screen.dart';
@@ -15,8 +17,17 @@ String _formatDuration(int totalSeconds) {
   return '${totalSeconds}s';
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _settingsKey = GlobalKey();
+  final _continueReadingKey = GlobalKey();
+  final _browseKey = GlobalKey();
 
   static const _dayMessages = [
     'Good start', // day 1
@@ -40,6 +51,34 @@ class HomeScreen extends StatelessWidget {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final appState = context.read<AppState>();
+      if (appState.hasSeenCoachTour) return;
+      appState.markCoachTourSeen();
+      CoachTour.show(context, [
+        CoachStep(
+          targetKey: _settingsKey,
+          title: 'Your settings',
+          description: "Change your name, script, theme, or translation style here.",
+        ),
+        CoachStep(
+          targetKey: _continueReadingKey,
+          title: 'Pick up where you left off',
+          description: "This always points to your last read ayah, so you never lose your place.",
+        ),
+        CoachStep(
+          targetKey: _browseKey,
+          title: 'Browse any Surah or Juz',
+          description: "Jump anywhere in the Quran whenever you want, without disturbing your progress.",
+        ),
+      ]);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final streak = appState.streakState;
@@ -55,6 +94,7 @@ class HomeScreen extends StatelessWidget {
         title: const Text('wird.', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2)),
         actions: [
           IconButton(
+            key: _settingsKey,
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SettingsScreen()),
@@ -95,11 +135,14 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 32),
-              _ContinueReadingCard(
-                surahName: resumeSurah.englishName,
-                surahNumber: resumeSurah.number,
-                ayahNumber: position.ayahNumber,
-                ayahCount: resumeSurah.ayahCount,
+              KeyedSubtree(
+                key: _continueReadingKey,
+                child: _ContinueReadingCard(
+                  surahName: resumeSurah.englishName,
+                  surahNumber: resumeSurah.number,
+                  ayahNumber: position.ayahNumber,
+                  ayahCount: resumeSurah.ayahCount,
+                ),
               ),
               const SizedBox(height: 20),
               _VerseOfTheDay(verse: verse),
@@ -125,6 +168,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               OutlinedButton(
+                key: _browseKey,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: colorScheme.onSurface,
                   padding: const EdgeInsets.symmetric(vertical: 18),
@@ -250,7 +294,8 @@ class _VerseOfTheDayState extends State<_VerseOfTheDay> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    const arabicStyle = TextStyle(fontFamily: 'QuranNastaleeq', fontSize: 24, height: 2.1);
+    final fontFamily = context.watch<AppState>().quranScript.fontFamily;
+    final arabicStyle = TextStyle(fontFamily: fontFamily, fontSize: 24, height: 2.1);
     final englishStyle = TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurface);
 
     return Material(

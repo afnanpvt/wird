@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/quran_script.dart';
 import '../services/app_state.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -75,6 +76,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (value) => context.read<AppState>().saveName(value),
           ),
           const SizedBox(height: 40),
+          Text('QURAN SCRIPT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          for (final script in QuranScript.values) ...[
+            _ScriptOption(
+              script: script,
+              selected: appState.quranScript == script,
+              onTap: () => appState.setScript(script),
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 30),
           Text('YOUR DATA', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 8),
           Text(
@@ -110,3 +122,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
+
+class _ScriptOption extends StatelessWidget {
+  final QuranScript script;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ScriptOption({required this.script, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(script.displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        ),
+                        Icon(
+                          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(script.description, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                    const SizedBox(height: 10),
+                    Text(
+                      _preview,
+                      textDirection: TextDirection.rtl,
+                      style: TextStyle(fontFamily: script.fontFamily, fontSize: 20, height: 1.8, color: colorScheme.onSurface),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _preview = 'بِسْمِ اللَّهِ الرَّحْمٰنِ الرَّحِيمِ';

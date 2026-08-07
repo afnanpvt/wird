@@ -1,0 +1,38 @@
+AlQuran IndoPak by QuranWBW (Version 4.2.1-WL, "waqf lazim")
+
+Made by Ayman Siddiqui and R. Siddiqua for www.QuranWBW.com and
+www.Quran.com, based on Al Qalam Quran Majeed / Al Qalam Quran Majeed Web,
+specially adjusted for the Special Naskh Nastaleeq (IndoPak) Quran text.
+Ayah-number glyphs use Nastaleeq glyphs by King Fahd Glorious Quran
+Printing Complex (KFGQPC). Credits: Abdul Majeed Khan, Arif Karim,
+Shakir-ul-Qadree, Jawad.
+
+Made only for Sadaqa-e-Jaria purposes.
+Contact: quranwbw@gmail.com / quranwbw.com
+
+License (from the font's own embedded name table):
+  "NOT FOR SALE, NOT FOR MODIFICATION, NOT FOR DISTRIBUTION OR NOT FOR
+   DEVELOPMENT WITHOUT WRITTEN NOTICE BY QURANWBW.COM"
+
+>>> ACTION NEEDED BEFORE PUBLIC DISTRIBUTION <<<
+This wording asks for written notice to QuranWBW before distributing.
+This project bundles the file completely unmodified, but if you are
+shipping this app publicly (F-Droid, GitHub Releases, Play Store), send
+a short courtesy email to quranwbw@gmail.com naming the app and how the
+font is used. Treat this as NonFreeAssets for F-Droid purposes.
+
+Why this font (see DESIGN.md for the full history):
+  - Exact matched pair for the QUL "Indopak Nastaleeq" text this app
+    ships - font and text come from the same lineage, which is what
+    keeps mark positioning correct.
+  - Verified against the actual bundled text: 0 missing codepoints out
+    of the 71 the text uses (844 codepoints in the font).
+  - Verified via fontTools GDEF inspection: all five marks that other
+    Nastaleeq fonts misclassify (U+0614, U+0615, U+0617, U+06D6, U+06ED)
+    are correctly class 3 (MARK) here, plus U+06E1, U+0670, U+0652.
+    No mark-collision and no large-circle rendering bug.
+  - This font was briefly rejected earlier in development for drawing
+    U+06E1 as a closed circle rather than an open hook. That is no
+    longer material: after the text was re-sourced to QUL's IndoPak
+    Hanafi dataset, U+06E1 appears only 26 times in the whole Quran
+    (the text uses U+0652 standard sukun 62,360 times instead).

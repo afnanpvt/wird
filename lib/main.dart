@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/home_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'services/app_state.dart';
 import 'services/hive_service.dart';
 import 'widgets/welcome_dialog.dart';
@@ -122,15 +123,20 @@ class _BootstrapState extends State<_Bootstrap> {
     if (!appState.isLoaded) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    if (!appState.hasCompletedOnboarding) {
+      return const OnboardingScreen();
+    }
     if (!_welcomeChecked) {
       _welcomeChecked = true;
       final kind = appState.checkWelcomeModal();
-      if (kind != null) {
+      if (kind == 'back') {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
-          await showWelcomeDialog(context, isFirstLaunch: kind == 'first');
+          await showWelcomeDialog(context, isFirstLaunch: false);
           await appState.markWelcomeModalShown();
         });
+      } else if (kind == 'first') {
+        appState.markWelcomeModalShown();
       }
     }
     return const HomeScreen();

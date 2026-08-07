@@ -16,6 +16,19 @@ because there are already a bunch of good ones, and this isn't trying to replace
 
 if this feels inspired by the gamified habit apps you already know, it is. i just wanted that energy pointed at something that actually matters to me.
 
+## get it
+
+**[↓ download the latest apk](https://github.com/afnanpvt/wird/releases/latest)** — or add `https://afnanpvt.github.io/wird/repo` as a repo in the [f-droid client](https://f-droid.org/) and get updates automatically. more detail in [trying it out](#trying-it-out) below.
+
+## what's new in 1.2.0
+
+- **three scripts to choose from** — indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed colour-coding. pick one when you first open the app, change it any time in settings, and preview each one before you commit.
+- **better indo-pak rendering** — the arabic text and the font it's paired with now come from the same source, which fixes letterforms and diacritic placement that were subtly wrong before. the lam-alif (`لا`) in particular now matches a printed mushaf.
+- **a proper first-run setup** — asks your name (optional), lets you pick your script, and gets out of the way. no accounts, still.
+- **a one-time tour** pointing out the three things worth knowing, then never again.
+- **a small celebration** when you finish a surah or juz.
+- **light mode is now the default** for new installs.
+
 ## what it actually does
 
 - reads the quran in three different scripts, indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed color-coding, switchable anytime, each paired with a properly-sourced font and text so the actual letterforms and marks render correctly, not just "close enough"

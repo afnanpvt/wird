@@ -1,6 +1,6 @@
 # wird
 
-![wird — build a lasting relationship with the quran](docs/hero.webp)
+![wird - build a lasting relationship with the quran](docs/hero.webp)
 
 a quran reading app for one person: whoever's holding the phone.
 
@@ -18,13 +18,15 @@ if this feels inspired by the gamified habit apps you already know, it is. i jus
 
 ## get it
 
-**[↓ download the latest apk](https://github.com/afnanpvt/wird/releases/latest)** — or add `https://afnanpvt.github.io/wird/repo` as a repo in the [f-droid client](https://f-droid.org/) and get updates automatically. more detail in [trying it out](#trying-it-out) below.
+**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/app-release.apk)** - starts downloading right away, no page in between. android will ask you to confirm installing from outside the play store, that's normal.
+
+want updates without checking back? add `https://afnanpvt.github.io/wird/repo` as a repo in the [f-droid client](https://f-droid.org/) instead and it'll update itself. more detail in [trying it out](#trying-it-out) below.
 
 ## what's new in 1.2.0
 
-- **three scripts to choose from** — indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed colour-coding. pick one when you first open the app, change it any time in settings, and preview each one before you commit.
-- **better indo-pak rendering** — the arabic text and the font it's paired with now come from the same source, which fixes letterforms and diacritic placement that were subtly wrong before. the lam-alif (`لا`) in particular now matches a printed mushaf.
-- **a proper first-run setup** — asks your name (optional), lets you pick your script, and gets out of the way. no accounts, still.
+- **three scripts to choose from** - indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed colour-coding. pick one when you first open the app, change it any time in settings, and preview each one before you commit.
+- **better indo-pak rendering** - the arabic text and the font it's paired with now come from the same source, which fixes letterforms and diacritic placement that were subtly wrong before. the lam-alif (`لا`) in particular now matches a printed mushaf.
+- **a proper first-run setup** - asks your name (optional), lets you pick your script, and gets out of the way. no accounts, still.
 - **a one-time tour** pointing out the three things worth knowing, then never again.
 - **a small celebration** when you finish a surah or juz.
 - **light mode is now the default** for new installs.
@@ -52,7 +54,7 @@ that also means: if you uninstall the app, it's gone. there's no cloud backup to
 
 **f-droid (recommended, auto-updates):** add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [F-Droid client](https://f-droid.org/), then install wird from there like any other f-droid app. this is a self-hosted repo, not the main f-droid index, so you're trusting this project's own signing key rather than f-droid's review process, same tradeoff as any indie repo.
 
-**direct apk:** grab the latest from [github releases](https://github.com/afnanpvt/wird/releases) and install it. android will warn you about installing from outside the play store, that's expected for an independent project not distributed there, not a sign anything's wrong. every release apk is signed with the same key, so you'll get clean updates over the old install either way.
+**direct apk:** [download the latest apk](https://github.com/afnanpvt/wird/releases/latest/download/app-release.apk) directly, or browse [all releases](https://github.com/afnanpvt/wird/releases) if you want an older version. android will warn you about installing from outside the play store, that's expected for an independent project not distributed there, not a sign anything's wrong. every release apk is signed with the same key, so you'll get clean updates over the old install either way.
 
 if you'd rather build it yourself, it's a standard flutter project:
 

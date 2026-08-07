@@ -26,8 +26,7 @@ extension QuranScriptInfo on QuranScript {
         QuranScript.uthmaniTajweed => 'assets/data/quran_ar_uthmani.json',
       };
 
-  /// Whether ayah text should be split into per-word Text widgets with real
-  /// gaps between them (needed for dense Nastaleeq; Naskh scripts already
-  /// have enough natural word-spacing without it).
-  bool get needsWordSpacing => this == QuranScript.indoPakNastaleeq;
+  // No per-script spacing overrides: every bundled font spaces words correctly
+  // on its own. See _ArabicText in reading_screen.dart for why the old
+  // split-on-spaces approach was removed.
 }

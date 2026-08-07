@@ -432,32 +432,27 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-/// Arabic word-spacing via [Wrap] gaps, not [TextStyle.letterSpacing]/[wordSpacing] -
-/// both are no-ops for RTL script on this Flutter engine (flutter/flutter#177406).
-class _SpacedArabicText extends StatelessWidget {
+/// Quran text is rendered as ONE Text - one shaping run for the whole ayah.
+///
+/// An earlier version split the ayah on spaces into per-word widgets inside a
+/// [Wrap] with artificial gaps, to force visible word separation out of a font
+/// (PDMS Saleem) that set them too tight. Do not reintroduce that: splitting on
+/// spaces detaches a trailing waqf/pause mark from the word it belongs to, so
+/// e.g. 2:2 rendered the mark after `رَيْبَ` drifting onto `فِيْهِ`. The current
+/// font spaces words correctly on its own.
+///
+/// Also note [TextStyle.letterSpacing] and [wordSpacing] are no-ops for RTL
+/// script on this Flutter engine (flutter/flutter#177406), so they are not an
+/// alternative lever here either.
+class _ArabicText extends StatelessWidget {
   final String text;
   final TextStyle style;
-  final double spacing;
 
-  const _SpacedArabicText({required this.text, required this.style, this.spacing = 10});
+  const _ArabicText({required this.text, required this.style});
 
   @override
-  Widget build(BuildContext context) {
-    final script = context.watch<AppState>().quranScript;
-    if (!script.needsWordSpacing) {
-      return Text(text, textDirection: TextDirection.rtl, textAlign: TextAlign.center, style: style);
-    }
-    final words = text.split(' ').where((w) => w.isNotEmpty).toList();
-    return Wrap(
-      textDirection: TextDirection.rtl,
-      alignment: WrapAlignment.center,
-      spacing: spacing,
-      runSpacing: 8,
-      children: [
-        for (final word in words) Text(word, textDirection: TextDirection.rtl, style: style),
-      ],
-    );
-  }
+  Widget build(BuildContext context) =>
+      Text(text, textDirection: TextDirection.rtl, textAlign: TextAlign.center, style: style);
 }
 
 class _AyahPage extends StatelessWidget {
@@ -483,9 +478,8 @@ class _AyahPage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (bismillahText != null) ...[
-                    _SpacedArabicText(
+                    _ArabicText(
                       text: bismillahText!,
-                      spacing: 8,
                       style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 27, height: 2.1, color: colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 20),
@@ -498,9 +492,8 @@ class _AyahPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(24),
                     ),
                     alignment: Alignment.center,
-                    child: _SpacedArabicText(
+                    child: _ArabicText(
                       text: ayah.arabicText,
-                      spacing: 12,
                       style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 42, height: 2.2),
                     ),
                   ),

@@ -18,7 +18,7 @@ if this feels inspired by the gamified habit apps you already know, it is. i jus
 
 ## get it
 
-**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.3.1.apk)**
+**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.3.2.apk)**
 tap it, it downloads right away, no page in between.
 
 **or, for auto-updates: f-droid**

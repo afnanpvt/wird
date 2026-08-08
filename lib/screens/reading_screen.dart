@@ -349,10 +349,16 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
                 minBlastForce: 6,
                 gravity: 0.25,
                 emissionFrequency: 0.04,
-                colors: [
-                  Theme.of(context).colorScheme.primary,
-                  Theme.of(context).colorScheme.onSurface,
-                  Theme.of(context).colorScheme.outline,
+                // A real, multi-colored celebration burst, not the UI's
+                // monochrome palette - it's a one-off moment, not chrome,
+                // so it doesn't need to follow the "accent is reserved"
+                // rule the rest of the UI follows.
+                colors: const [
+                  Color(0xFFFFD700), // gold
+                  Color(0xFFC0C0C0), // silver
+                  Color(0xFFE63946), // red
+                  Color(0xFF4169E1), // royal blue
+                  Color(0xFF50C878), // emerald green
                 ],
               ),
             ),

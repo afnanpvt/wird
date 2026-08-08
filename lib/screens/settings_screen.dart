@@ -66,6 +66,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextField(
             controller: _nameController,
             textCapitalization: TextCapitalization.words,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: InputDecoration(
               hintText: 'Your name',
               filled: true,

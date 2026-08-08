@@ -126,6 +126,8 @@ class _NameStep extends StatelessWidget {
             controller: controller,
             autofocus: true,
             textCapitalization: TextCapitalization.words,
+            autocorrect: false,
+            enableSuggestions: false,
             style: const TextStyle(fontSize: 18),
             decoration: InputDecoration(
               hintText: 'Your name',

@@ -83,7 +83,13 @@ class _CoachOverlay extends StatelessWidget {
     final captionTop = captionBelow ? highlight.bottom + 16 : null;
     final captionBottom = captionBelow ? null : screenSize.height - highlight.top + 16;
 
-    return Stack(
+    // Wrapped in a Material because this is inserted into the root Overlay,
+    // outside the app's Scaffold/Material ancestry - without it, the Text
+    // widgets below don't inherit the themed DefaultTextStyle (Inter) and
+    // fall back to the platform default font.
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
       children: [
         // Scrim is decorative only - no tap handler. A GestureDetector here
         // would sit in the same hit-test pass as the Next/Skip/Done buttons
@@ -142,6 +148,7 @@ class _CoachOverlay extends StatelessWidget {
           ),
         ),
       ],
+      ),
     );
   }
 }

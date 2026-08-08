@@ -83,6 +83,7 @@ class AppState extends ChangeNotifier {
   Future<void> saveLastPosition(ReadingProgress progress) async {
     lastPosition = progress;
     await _progressService.saveLastPosition(progress);
+    notifyListeners();
   }
 
   Future<void> saveName(String name) async {

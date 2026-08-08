@@ -5,11 +5,14 @@ Future<void> showCompletionDialog(
   required int ayahsThisSession,
   required int ayahsToday,
 }) {
+  // A short session (a page or two before stopping) hasn't earned
+  // congratulating - only genuinely substantive sessions get the praise.
+  final title = ayahsThisSession < 5 ? "Today's reading" : 'Nice work today';
   return showDialog(
     context: context,
     builder: (context) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Nice work today'),
+      title: Text(title),
       content: Text(
         '$ayahsThisSession ayah${ayahsThisSession == 1 ? '' : 's'} read this session\n'
         '$ayahsToday ayah${ayahsToday == 1 ? '' : 's'} read today',

@@ -16,6 +16,20 @@ import '../widgets/completion_dialog.dart';
 /// Surahs that traditionally omit the opening Bismillah (only At-Tawbah).
 const _surahsWithoutBismillah = {9};
 
+/// Strips the trailing ayah-end ornament from an ayah's text.
+///
+/// In the bundled Indo-Pak text each ayah ends with U+06DF (the ayah-end
+/// circle), optionally a waqf/pause mark, then a Private-Use codepoint in the
+/// U+F5xx range that draws the ayah *number* inside the circle. That's correct
+/// on a real ayah, but the Bismillah shown at the head of a surah is not ayah 1
+/// of that surah (except in Al-Fatiha, where it genuinely is), so reusing 1:1
+/// verbatim would stamp a "1" ornament on every surah opener.
+String _withoutAyahEndOrnament(String text) {
+  final i = text.lastIndexOf('۟');
+  if (i == -1) return text;
+  return text.substring(0, i).trimRight();
+}
+
 class ReadingScreen extends StatefulWidget {
   final int initialSurahNumber;
   final int initialAyahNumber;
@@ -59,7 +73,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     final quran = context.read<AppState>().quran;
     _ayahs = quran.ayahsForSurah(widget.initialSurahNumber);
     _hasBismillah = widget.initialSurahNumber != 1 && !_surahsWithoutBismillah.contains(widget.initialSurahNumber);
-    _bismillahText = quran.ayahsForSurah(1).first.arabicText;
+    _bismillahText = _withoutAyahEndOrnament(quran.ayahsForSurah(1).first.arabicText);
 
     _currentIndex = (widget.initialAyahNumber - 1).clamp(0, _ayahs.length - 1);
     _pageController = PageController(initialPage: _currentIndex);

@@ -109,6 +109,8 @@ class AppState extends ChangeNotifier {
   int get totalAyahsRead => _streakService.totalAyahsRead();
   int get longestStreak => _streakService.getLongestStreak();
   int get totalReadingSeconds => _streakService.getTotalReadingSeconds();
+  int get readingSecondsToday => _streakService.readingSecondsToday();
+  int get readingSecondsThisWeek => _streakService.readingSecondsThisWeek();
 
   Future<void> addReadingSeconds(int seconds) => _streakService.addReadingSeconds(seconds);
 

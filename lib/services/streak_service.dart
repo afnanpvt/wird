@@ -18,6 +18,7 @@ String dateKey(DateTime d) {
 class StreakService {
   Box get _streakBox => Hive.box(HiveBoxes.streak);
   Box get _dailyLogsBox => Hive.box(HiveBoxes.dailyLogs);
+  Box get _dailyReadingSecondsBox => Hive.box(HiveBoxes.dailyReadingSeconds);
   Box get _readAyahsBox => Hive.box(HiveBoxes.readAyahs);
 
   StreakState getState() {
@@ -121,8 +122,25 @@ class StreakService {
   /// app restarts. Never resets.
   int getTotalReadingSeconds() => _streakBox.get('totalReadingSeconds') as int? ?? 0;
 
-  Future<void> addReadingSeconds(int seconds) =>
-      _streakBox.put('totalReadingSeconds', getTotalReadingSeconds() + seconds);
+  Future<void> addReadingSeconds(int seconds) async {
+    await _streakBox.put('totalReadingSeconds', getTotalReadingSeconds() + seconds);
+    final today = dateKey(DateTime.now());
+    final todaySeconds = (_dailyReadingSecondsBox.get(today) as int? ?? 0) + seconds;
+    await _dailyReadingSecondsBox.put(today, todaySeconds);
+  }
+
+  int readingSecondsOn(DateTime date) => _dailyReadingSecondsBox.get(dateKey(date)) as int? ?? 0;
+
+  int readingSecondsToday() => readingSecondsOn(DateTime.now());
+
+  int readingSecondsThisWeek() {
+    var total = 0;
+    final today = dateOnly(DateTime.now());
+    for (var i = 0; i < 7; i++) {
+      total += readingSecondsOn(today.subtract(Duration(days: i)));
+    }
+    return total;
+  }
 
   /// Number of times a reading screen has been opened. Counted at session
   /// start rather than on "I'm done", since many sessions end by just

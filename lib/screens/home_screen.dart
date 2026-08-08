@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -29,30 +31,27 @@ class _HomeScreenState extends State<HomeScreen> {
   final _continueReadingKey = GlobalKey();
   final _browseKey = GlobalKey();
 
-  static const _dayMessages = [
-    'Good start', // day 1
-    'Two days now', // day 2
-    'Three days, keep going', // day 3
-    'Four days strong', // day 4
-    "Five days in, a habit's forming", // day 5
-    'Six days, nice rhythm', // day 6
-    'One full week', // day 7
-    'Eight days and counting', // day 8
-    'Nine days, almost double digits', // day 9
-    "Ten days — you've earned a grace day", // day 10
+  // Randomized once per app open rather than per rebuild, so it doesn't
+  // change every time something else on the screen triggers a rebuild.
+  static const _islamicGreetings = [
+    'Assalamu alaikum',
+    'As-salamu alaykum',
+    'Peace be upon you',
+    'Salaam',
   ];
+  late final String _islamicGreeting;
 
-  String _greeting(String? name, int streak) {
+  // The streak number is already the loud, visible thing right below this -
+  // no need for a second congratulatory line repeating it in words.
+  String _greeting(String? name) {
     final who = name == null || name.isEmpty ? '' : ', $name';
-    if (streak == 0) return "Let's start today$who";
-    if (streak <= _dayMessages.length) return '${_dayMessages[streak - 1]}$who';
-    if (streak < 50) return '$streak days strong$who';
-    return '$streak days in — still going$who';
+    return '$_islamicGreeting$who';
   }
 
   @override
   void initState() {
     super.initState();
+    _islamicGreeting = _islamicGreetings[Random().nextInt(_islamicGreetings.length)];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final appState = context.read<AppState>();
@@ -109,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                _greeting(appState.userName, streak.currentStreak),
+                _greeting(appState.userName),
                 style: TextStyle(fontSize: 15, color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 24),
@@ -145,27 +144,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              _VerseOfTheDay(verse: verse),
-              const SizedBox(height: 32),
-              _StatGroup(
-                label: 'THIS WEEK',
-                stats: [
-                  _Stat('Today', '${appState.ayahsReadToday}'),
-                  _Stat('This week', '${appState.ayahsReadThisWeek}'),
-                  _Stat('Total', '${appState.totalAyahsRead}'),
-                ],
-              ),
+              DateTime.now().weekday == DateTime.friday ? const _FridayCard() : _VerseOfTheDay(verse: verse),
               const SizedBox(height: 20),
-              Divider(height: 1, color: colorScheme.outlineVariant),
-              const SizedBox(height: 20),
-              _StatGroup(
-                label: 'OVERALL',
-                stats: [
-                  _Stat('Best streak', '${appState.longestStreak}'),
-                  _Stat('Sessions', '${appState.sessionCount}'),
-                  _Stat('Time reading', _formatDuration(appState.totalReadingSeconds)),
-                ],
-              ),
+              const _StatsCard(),
               const SizedBox(height: 24),
               OutlinedButton(
                 key: _browseKey,
@@ -371,37 +352,163 @@ class _Stat {
   _Stat(this.label, this.value);
 }
 
-class _StatGroup extends StatelessWidget {
-  final String label;
-  final List<_Stat> stats;
+/// Swipeable Today / Week / All time stats, so the home screen surfaces one
+/// clear window at a time instead of every number at once.
+class _StatsCard extends StatefulWidget {
+  const _StatsCard();
 
-  const _StatGroup({required this.label, required this.stats});
+  @override
+  State<_StatsCard> createState() => _StatsCardState();
+}
+
+class _StatsCardState extends State<_StatsCard> with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          TabBar(
+            controller: _tabController,
+            dividerColor: Colors.transparent,
+            indicatorColor: colorScheme.onSurface,
+            indicatorSize: TabBarIndicatorSize.label,
+            labelColor: colorScheme.onSurface,
+            unselectedLabelColor: colorScheme.onSurfaceVariant,
+            labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            tabs: const [Tab(text: 'Today'), Tab(text: 'Week'), Tab(text: 'All time')],
+          ),
+          SizedBox(
+            height: 96,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _StatsRow(stats: [
+                  _Stat('Ayahs read', '${appState.ayahsReadToday}'),
+                  _Stat('Time reading', _formatDuration(appState.readingSecondsToday)),
+                ]),
+                _StatsRow(stats: [
+                  _Stat('Ayahs read', '${appState.ayahsReadThisWeek}'),
+                  _Stat('Time reading', _formatDuration(appState.readingSecondsThisWeek)),
+                ]),
+                _StatsRow(stats: [
+                  _Stat('Ayahs read', '${appState.totalAyahsRead}'),
+                  _Stat('Time reading', _formatDuration(appState.totalReadingSeconds)),
+                  _Stat('Best streak', '${appState.longestStreak}'),
+                ]),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsRow extends StatelessWidget {
+  final List<_Stat> stats;
+  const _StatsRow({required this.stats});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            for (var i = 0; i < stats.length; i++) ...[
-              if (i > 0) SizedBox(width: 1, height: 40, child: Container(color: colorScheme.outlineVariant)),
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(stats[i].value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text(stats[i].label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
-                  ],
-                ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      child: Row(
+        children: [
+          for (var i = 0; i < stats.length; i++) ...[
+            if (i > 0) SizedBox(width: 1, height: 40, child: Container(color: colorScheme.outlineVariant)),
+            Expanded(
+              child: Column(
+                children: [
+                  Text(stats[i].value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(stats[i].label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown instead of the Verse of the Day on Fridays: Surah Al-Kahf is the
+/// one day-specific recitation with broad, well-attested backing (unlike
+/// other days, which don't have an equally universal recommendation).
+/// Deliberately doesn't move the continue-reading position - see
+/// [ReadingScreen.updatesContinuePoint].
+class _FridayCard extends StatelessWidget {
+  const _FridayCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final appState = context.read<AppState>();
+    final surah = appState.quran.surahByNumber(18);
+
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const ReadingScreen(
+              initialSurahNumber: 18,
+              initialAyahNumber: 1,
+              updatesContinuePoint: false,
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "IT'S JUMU'AH",
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Friday is the best day of the week. Many Muslims read Surah Al-Kahf today, a tradition going back to the Prophet's own recommendation.",
+                style: TextStyle(fontSize: 14, height: 1.5, color: colorScheme.onSurface),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('18 ${surah.englishName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  ),
+                  Icon(Icons.arrow_forward_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+                ],
               ),
             ],
-          ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }

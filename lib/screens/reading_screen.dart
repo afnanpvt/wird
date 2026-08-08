@@ -167,21 +167,20 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Update your reading progress?'),
+        title: const Text('Continue from here?'),
         content: Text(
-          "This sets ${surah.englishName} · ayah ${position.ayahNumber} as where wird resumes from on your home screen. "
-          "If you're just reading this casually, you can leave your progress where it is.",
+          "Your home screen will pick up from ${surah.englishName}, ayah ${position.ayahNumber}, instead of wherever you left off before.",
         ),
         actions: [
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Just browsing'),
+            child: const Text('Not now'),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Set as my progress'),
+            child: const Text('Save this spot'),
           ),
         ],
       ),
@@ -298,7 +297,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
         actions: [
           if (!_tracksContinue)
             IconButton(
-              tooltip: 'Update reading progress',
+              tooltip: 'Save as continue reading',
               icon: const Icon(Icons.bookmark_add_outlined),
               onPressed: _confirmSetAsContinueReading,
             ),

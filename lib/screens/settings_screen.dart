@@ -169,7 +169,7 @@ class _ScriptOption extends StatelessWidget {
                     Text(script.description, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
                     const SizedBox(height: 10),
                     Text(
-                      _preview,
+                      script.previewText,
                       textDirection: TextDirection.rtl,
                       style: TextStyle(fontFamily: script.fontFamily, fontSize: 20, height: 1.8, color: colorScheme.onSurface),
                     ),
@@ -184,4 +184,3 @@ class _ScriptOption extends StatelessWidget {
   }
 }
 
-const _preview = 'بِسْمِ اللَّهِ الرَّحْمٰنِ الرَّحِيمِ';

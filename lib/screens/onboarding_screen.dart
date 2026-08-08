@@ -166,8 +166,6 @@ class _ScriptStep extends StatelessWidget {
 
   const _ScriptStep({required this.selected, required this.onSelect, required this.onNext, required this.onBack});
 
-  static const _preview = 'بِسْمِ اللَّهِ الرَّحْمٰنِ الرَّحِيمِ';
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -193,7 +191,7 @@ class _ScriptStep extends StatelessWidget {
             child: ListView(
               children: [
                 for (final script in QuranScript.values) ...[
-                  _ScriptCard(script: script, selected: script == selected, onTap: () => onSelect(script), preview: _preview),
+                  _ScriptCard(script: script, selected: script == selected, onTap: () => onSelect(script)),
                   const SizedBox(height: 12),
                 ],
               ],
@@ -222,9 +220,8 @@ class _ScriptCard extends StatelessWidget {
   final QuranScript script;
   final bool selected;
   final VoidCallback onTap;
-  final String preview;
 
-  const _ScriptCard({required this.script, required this.selected, required this.onTap, required this.preview});
+  const _ScriptCard({required this.script, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -255,7 +252,7 @@ class _ScriptCard extends StatelessWidget {
                       Text(script.description, style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
                       const SizedBox(height: 10),
                       Text(
-                        preview,
+                        script.previewText,
                         textDirection: TextDirection.rtl,
                         style: TextStyle(fontFamily: script.fontFamily, fontSize: 22, height: 1.8),
                       ),

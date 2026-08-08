@@ -18,7 +18,7 @@ if this feels inspired by the gamified habit apps you already know, it is. i jus
 
 ## get it
 
-**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.2.1.apk)**
+**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.3.0.apk)**
 tap it, it downloads right away, no page in between.
 
 **or, for auto-updates: f-droid**
@@ -26,19 +26,20 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.2.0
+## what's new in 1.3.0
 
-- three quran scripts to choose from, picked during a proper first-run setup
-- better indo-pak rendering - the text and font finally come from the same source
-- a small celebration when you finish a surah or juz
-- light mode is now the default for new installs
+- stats you can swipe through - today, this week, or all time, each showing ayahs read and time spent reading
+- a friday suggestion to read surah al-kahf, in place of the verse of the day
+- a warmer, randomized greeting each time you open the app
+- a reworded "save as continue reading" prompt, and a handful of small polish fixes throughout
 
 ## what it actually does
 
 - reads the quran in three different scripts, indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed color-coding, switchable anytime, each paired with a properly-sourced font and text so the actual letterforms and marks render correctly, not just "close enough"
 - arabic text alongside two english translations (saheeh international, and the clear quran for when the literal translation isn't clicking)
 - tracks a daily streak with a grace day built in, because missing one day shouldn't erase everything you built
-- honest stats only: current streak, sessions, time spent reading, ayahs read today/this week/total. no invented "% of quran read" number, because the app genuinely doesn't know your reading history from before you installed it, and pretending otherwise felt dishonest
+- honest stats only, swipeable by today/this week/all time: ayahs read, time spent reading, best streak. no invented "% of quran read" number, because the app genuinely doesn't know your reading history from before you installed it, and pretending otherwise felt dishonest
+- suggests surah al-kahf on fridays, in place of the verse of the day, without touching your saved progress
 - a short first-time setup: your name (optional), pick a script, that's it, no accounts
 - a quiet first-run tour pointing at the three things worth knowing, shown once
 - a small celebration when you finish a surah or a juz, nothing that gets in the way of actually reading

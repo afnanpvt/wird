@@ -18,7 +18,7 @@ class CoachTour {
     }
     late OverlayEntry entry;
     var index = 0;
-    late void Function() showStep;
+    late Future<void> Function() showStep;
 
     void closeAndAdvance() {
       entry.remove();
@@ -30,7 +30,21 @@ class CoachTour {
       }
     }
 
-    showStep = () {
+    showStep = () async {
+      // The target may be below the fold on a shorter screen (e.g. the
+      // Browse button, last in a scrolling Home screen) - scroll it into
+      // view and wait for that to settle before measuring its position,
+      // or the spotlight highlights wherever the widget used to be.
+      final targetContext = steps[index].targetKey.currentContext;
+      if (targetContext != null) {
+        await Scrollable.ensureVisible(
+          targetContext,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          alignment: 0.5,
+        );
+      }
+      if (!context.mounted) return;
       entry = OverlayEntry(
         builder: (context) => _CoachOverlay(
           step: steps[index],

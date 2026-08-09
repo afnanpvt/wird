@@ -141,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   surahNumber: resumeSurah.number,
                   ayahNumber: position.ayahNumber,
                   ayahCount: resumeSurah.ayahCount,
+                  isNewUser: appState.totalAyahsRead == 0,
                 ),
               ),
               const SizedBox(height: 20),
@@ -174,12 +175,14 @@ class _ContinueReadingCard extends StatelessWidget {
   final int surahNumber;
   final int ayahNumber;
   final int ayahCount;
+  final bool isNewUser;
 
   const _ContinueReadingCard({
     required this.surahName,
     required this.surahNumber,
     required this.ayahNumber,
     required this.ayahCount,
+    required this.isNewUser,
   });
 
   @override
@@ -202,7 +205,7 @@ class _ContinueReadingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'CONTINUE READING',
+                      isNewUser ? 'START HERE' : 'CONTINUE READING',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 6),
@@ -242,7 +245,7 @@ class _ContinueReadingCard extends StatelessWidget {
                   ),
                 ),
               ),
-              child: const Text('Read more'),
+              child: Text(isNewUser ? 'Start reading' : 'Read more'),
             ),
           ),
         ],

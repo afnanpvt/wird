@@ -7,8 +7,10 @@ import '../models/ayah.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
 import '../widgets/coach_tour.dart';
+import 'bookmarks_screen.dart';
 import 'reading_screen.dart';
 import 'settings_screen.dart';
+import 'streak_calendar_screen.dart';
 import 'browse_screen.dart';
 
 String _formatDuration(int totalSeconds) {
@@ -17,6 +19,15 @@ String _formatDuration(int totalSeconds) {
   if (hours > 0) return '${hours}h ${minutes}m';
   if (minutes > 0) return '${minutes}m';
   return '${totalSeconds}s';
+}
+
+/// Compact so a growing lifetime hasanat total never overflows its column
+/// in the stats card - full-precision numbers show up in smaller-magnitude
+/// spots instead (the live reading-session chip, the completion dialog).
+String _formatCompactCount(int n) {
+  if (n < 1000) return '$n';
+  if (n < 1000000) return '${(n / 1000).toStringAsFixed(n < 10000 ? 1 : 0)}k';
+  return '${(n / 1000000).toStringAsFixed(1)}M';
 }
 
 class HomeScreen extends StatefulWidget {
@@ -81,10 +92,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final streak = appState.streakState;
-    final position = appState.lastPosition;
+    final bookmark = appState.defaultBookmark;
     final colorScheme = Theme.of(context).colorScheme;
     final verse = appState.quran.verseOfTheDay(DateTime.now());
-    final resumeSurah = appState.quran.surahByNumber(position.surahNumber);
+    final resumeSurah = appState.quran.surahByNumber(bookmark.surahNumber);
 
     return Scaffold(
       appBar: AppBar(
@@ -112,34 +123,54 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(fontSize: 15, color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 24),
-              Center(
-                child: Column(
-                  children: [
-                    Text(
-                      '${streak.currentStreak}',
-                      style: TextStyle(
-                        fontSize: 76,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                        color: colorScheme.primary,
-                        letterSpacing: -1,
-                      ),
+              Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const StreakCalendarScreen()),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      children: [
+                        Center(
+                          child: Column(
+                            children: [
+                              Text(
+                                '${streak.currentStreak}',
+                                style: TextStyle(
+                                  fontSize: 76,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1,
+                                  color: colorScheme.primary,
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'day streak',
+                                style: TextStyle(fontSize: 15, color: colorScheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const _WeekStreakStrip(),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'day streak',
-                      style: TextStyle(fontSize: 15, color: colorScheme.onSurfaceVariant),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
               KeyedSubtree(
                 key: _continueReadingKey,
                 child: _ContinueReadingCard(
+                  bookmarkName: bookmark.name,
                   surahName: resumeSurah.englishName,
                   surahNumber: resumeSurah.number,
-                  ayahNumber: position.ayahNumber,
+                  ayahNumber: bookmark.ayahNumber,
                   ayahCount: resumeSurah.ayahCount,
                   isNewUser: appState.totalAyahsRead == 0,
                 ),
@@ -170,7 +201,96 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// A Duolingo-style Sun-Sat strip: days you actually read something (honest
+/// activity, same source as the stats card - not a separate "streak"
+/// concept) fill edge-to-edge with their neighbors, so a run of consecutive
+/// days reads as one continuous pill rather than separate touching circles -
+/// only the two ends of a run get rounded. Today gets a bold ring whether or
+/// not it's filled yet; days still ahead this week get a faint outline. A
+/// missed day just reads as an empty ring - no red, no "you failed" framing,
+/// in keeping with the app's forgiving-streak philosophy.
+class _WeekStreakStrip extends StatelessWidget {
+  const _WeekStreakStrip();
+
+  static const _dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  static const _trackHeight = 32.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final sunday = today.subtract(Duration(days: today.weekday % 7));
+
+    final dates = List.generate(7, (i) => sunday.add(Duration(days: i)));
+    final wasRead = [for (final d in dates) !d.isAfter(today) && appState.wasReadOnDate(d)];
+
+    return Row(
+      children: List.generate(7, (i) {
+        final date = dates[i];
+        final isFuture = date.isAfter(today);
+        final isToday = date == today;
+        final filled = wasRead[i];
+        final joinsLeft = filled && i > 0 && wasRead[i - 1];
+        final joinsRight = filled && i < 6 && wasRead[i + 1];
+
+        return Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _dayLabels[i],
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isToday ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 6),
+              if (filled)
+                Container(
+                  height: _trackHeight,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    borderRadius: BorderRadius.horizontal(
+                      left: Radius.circular(joinsLeft ? 0 : _trackHeight / 2),
+                      right: Radius.circular(joinsRight ? 0 : _trackHeight / 2),
+                    ),
+                  ),
+                  child: Icon(Icons.check_rounded, size: 16, color: colorScheme.onPrimary),
+                )
+              else
+                Center(
+                  child: Container(
+                    width: _trackHeight,
+                    height: _trackHeight,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isToday
+                            ? colorScheme.primary
+                            : isFuture
+                                ? colorScheme.outlineVariant.withValues(alpha: 0.5)
+                                : colorScheme.outlineVariant,
+                        width: isToday ? 2 : 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
 class _ContinueReadingCard extends StatelessWidget {
+  final String bookmarkName;
   final String surahName;
   final int surahNumber;
   final int ayahNumber;
@@ -178,6 +298,7 @@ class _ContinueReadingCard extends StatelessWidget {
   final bool isNewUser;
 
   const _ContinueReadingCard({
+    required this.bookmarkName,
     required this.surahName,
     required this.surahNumber,
     required this.ayahNumber,
@@ -205,7 +326,7 @@ class _ContinueReadingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isNewUser ? 'START HERE' : 'CONTINUE READING',
+                      isNewUser ? 'START HERE' : bookmarkName.toUpperCase(),
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 6),
@@ -216,14 +337,23 @@ class _ContinueReadingCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
+              Tooltip(
+                message: 'Bookmarks',
+                child: Material(
                   color: colorScheme.onSurface.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const BookmarksScreen()),
+                    ),
+                    child: SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: Icon(Icons.menu_book_rounded, size: 17, color: colorScheme.onSurface),
+                    ),
+                  ),
                 ),
-                child: Icon(Icons.menu_book_rounded, size: 17, color: colorScheme.onSurface),
               ),
             ],
           ),
@@ -402,22 +532,25 @@ class _StatsCardState extends State<_StatsCard> with SingleTickerProviderStateMi
             tabs: const [Tab(text: 'Today'), Tab(text: 'Week'), Tab(text: 'All time')],
           ),
           SizedBox(
-            height: 96,
+            height: 112,
             child: TabBarView(
               controller: _tabController,
               children: [
                 _StatsRow(stats: [
                   _Stat('Ayahs read', '${appState.ayahsReadToday}'),
                   _Stat('Time reading', _formatDuration(appState.readingSecondsToday)),
+                  _Stat('Hasanat', _formatCompactCount(appState.hasanatToday)),
                 ]),
                 _StatsRow(stats: [
                   _Stat('Ayahs read', '${appState.ayahsReadThisWeek}'),
                   _Stat('Time reading', _formatDuration(appState.readingSecondsThisWeek)),
+                  _Stat('Hasanat', _formatCompactCount(appState.hasanatThisWeek)),
                 ]),
                 _StatsRow(stats: [
                   _Stat('Ayahs read', '${appState.totalAyahsRead}'),
                   _Stat('Time reading', _formatDuration(appState.totalReadingSeconds)),
                   _Stat('Best streak', '${appState.longestStreak}'),
+                  _Stat('Hasanat', _formatCompactCount(appState.totalHasanat)),
                 ]),
               ],
             ),
@@ -444,9 +577,17 @@ class _StatsRow extends StatelessWidget {
             Expanded(
               child: Column(
                 children: [
-                  Text(stats[i].value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                  Text(
+                    stats[i].value,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 4),
-                  Text(stats[i].label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                  Text(
+                    stats[i].label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                  ),
                 ],
               ),
             ),

@@ -7,9 +7,9 @@ import 'package:provider/provider.dart';
 
 import '../main.dart';
 import '../models/ayah.dart';
+import '../models/bookmark.dart';
 import '../models/juz_progress.dart';
 import '../models/quran_script.dart';
-import '../models/reading_progress.dart';
 import '../services/app_state.dart';
 import '../widgets/completion_dialog.dart';
 
@@ -34,16 +34,23 @@ class ReadingScreen extends StatefulWidget {
   final int initialSurahNumber;
   final int initialAyahNumber;
 
-  /// Whether reading here should move the "Continue Reading" resume point.
-  /// True for the normal continuous-reading flow; false for one-off jumps
-  /// (Browse, Juz, verse of the day) so they don't clobber real progress.
+  /// Whether reading here should auto-advance the home screen's default
+  /// bookmark. True for the normal continuous-reading flow; false for
+  /// one-off jumps (Browse, Juz, verse of the day, a non-default bookmark)
+  /// so they don't clobber real progress.
   final bool updatesContinuePoint;
+
+  /// Internal: threads which specific bookmark is being auto-advanced across
+  /// a surah transition (see [_goForward]). Callers outside this file should
+  /// use [updatesContinuePoint] instead — leave this null.
+  final String? trackingBookmarkId;
 
   const ReadingScreen({
     super.key,
     required this.initialSurahNumber,
     required this.initialAyahNumber,
     this.updatesContinuePoint = true,
+    this.trackingBookmarkId,
   });
 
   @override
@@ -56,28 +63,32 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   late final String _bismillahText;
   late final PageController _pageController;
   late int _currentIndex;
-  late bool _tracksContinue;
+  String? _trackingBookmarkId;
   late int _lastJuzNumber;
   int _sessionAyahCount = 0;
+  int _sessionHasanat = 0;
   late final ConfettiController _confettiController;
 
   Duration _elapsed = Duration.zero;
   Timer? _ticker;
 
   int get _pageCount => _ayahs.length;
+  bool get _isTracking => _trackingBookmarkId != null;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    final quran = context.read<AppState>().quran;
+    final appState = context.read<AppState>();
+    final quran = appState.quran;
     _ayahs = quran.ayahsForSurah(widget.initialSurahNumber);
     _hasBismillah = widget.initialSurahNumber != 1 && !_surahsWithoutBismillah.contains(widget.initialSurahNumber);
     _bismillahText = _withoutAyahEndOrnament(quran.ayahsForSurah(1).first.arabicText);
 
     _currentIndex = (widget.initialAyahNumber - 1).clamp(0, _ayahs.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
-    _tracksContinue = widget.updatesContinuePoint;
+    _trackingBookmarkId =
+        widget.trackingBookmarkId ?? (widget.updatesContinuePoint ? appState.defaultBookmark.id : null);
     _sessionAyahCount = 1;
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
     _lastJuzNumber = quran.juzProgressFor(widget.initialSurahNumber, widget.initialAyahNumber).juzNumber;
@@ -159,49 +170,33 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     );
   }
 
-  ReadingProgress _resumePositionAt(int index) => ReadingProgress(
-        surahNumber: widget.initialSurahNumber,
-        ayahNumber: index + 1,
-      );
-
   void _recordPage(int index) {
     final content = _contentAt(index);
     final appState = context.read<AppState>();
     appState.recordAyahRead(content.surahNumber, content.ayahNumber);
-    if (_tracksContinue) {
-      appState.saveLastPosition(_resumePositionAt(index));
+    _sessionHasanat += appState.quran.hasanatForAyah(content.surahNumber, content.ayahNumber);
+    if (_trackingBookmarkId != null) {
+      appState.updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
     }
   }
 
-  Future<void> _confirmSetAsContinueReading() async {
+  Future<void> _showSaveBookmarkSheet() async {
     final appState = context.read<AppState>();
-    final surah = appState.quran.surahByNumber(widget.initialSurahNumber);
-    final position = _resumePositionAt(_currentIndex);
-    final confirmed = await showDialog<bool>(
+    final content = _contentAt(_currentIndex);
+    final surah = appState.quran.surahByNumber(content.surahNumber);
+    final resultId = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Continue from here?'),
-        content: Text(
-          "Your home screen will pick up from ${surah.englishName}, ayah ${position.ayahNumber}, instead of wherever you left off before.",
-        ),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Not now'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Save this spot'),
-          ),
-        ],
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _SaveBookmarkSheet(
+        existingBookmarks: appState.bookmarks,
+        surahNumber: content.surahNumber,
+        ayahNumber: content.ayahNumber,
+        positionLabel: '${surah.englishName}, ayah ${content.ayahNumber}',
       ),
     );
-    if (confirmed == true) {
-      setState(() => _tracksContinue = true);
-      await appState.saveLastPosition(position);
+    if (resultId != null && mounted) {
+      setState(() => _trackingBookmarkId = resultId);
     }
   }
 
@@ -211,8 +206,9 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     // never counted while the app isn't actually in front of the user.
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       _stopTicker();
-      if (_tracksContinue) {
-        context.read<AppState>().saveLastPosition(_resumePositionAt(_currentIndex));
+      if (_trackingBookmarkId != null) {
+        final content = _contentAt(_currentIndex);
+        context.read<AppState>().updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
       }
     } else if (state == AppLifecycleState.resumed) {
       if ((ModalRoute.of(context) as PageRoute<void>?)?.isCurrent ?? false) {
@@ -251,7 +247,8 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
           ReadingScreen(
             initialSurahNumber: widget.initialSurahNumber + 1,
             initialAyahNumber: 1,
-            updatesContinuePoint: _tracksContinue,
+            updatesContinuePoint: _isTracking,
+            trackingBookmarkId: _trackingBookmarkId,
           ),
         ));
       });
@@ -276,12 +273,20 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     );
   }
 
+  Future<void> _toggleFavorite() async {
+    final appState = context.read<AppState>();
+    final content = _contentAt(_currentIndex);
+    await appState.toggleFavorite(content.surahNumber, content.ayahNumber);
+    if (mounted) setState(() {});
+  }
+
   Future<void> _finishReading() async {
     final appState = context.read<AppState>();
     await showCompletionDialog(
       context,
       ayahsThisSession: _sessionAyahCount,
       ayahsToday: appState.ayahsReadToday,
+      hasanatThisSession: _sessionHasanat,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -309,11 +314,21 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         actions: [
-          if (!_tracksContinue)
+          IconButton(
+            tooltip: appState.isFavorite(content.surahNumber, content.ayahNumber)
+                ? 'Remove from saved verses'
+                : 'Add to saved verses',
+            icon: Icon(
+              appState.isFavorite(content.surahNumber, content.ayahNumber) ? Icons.favorite : Icons.favorite_border,
+              color: appState.isFavorite(content.surahNumber, content.ayahNumber) ? Theme.of(context).colorScheme.primary : null,
+            ),
+            onPressed: _toggleFavorite,
+          ),
+          if (!_isTracking)
             IconButton(
-              tooltip: 'Save as continue reading',
+              tooltip: 'Save this spot',
               icon: const Icon(Icons.bookmark_add_outlined),
-              onPressed: _confirmSetAsContinueReading,
+              onPressed: _showSaveBookmarkSheet,
             ),
           IconButton(
             tooltip: 'Jump to ayah',
@@ -326,16 +341,50 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
         children: [
           Column(
             children: [
-              _JuzProgressHeader(progress: juzProgress, sessionAyahCount: _sessionAyahCount, elapsedLabel: _elapsedLabel),
+              _JuzProgressHeader(
+                progress: juzProgress,
+                sessionAyahCount: _sessionAyahCount,
+                elapsedLabel: _elapsedLabel,
+                hasanatLabel: _formatCompactHasanat(_sessionHasanat),
+              ),
               Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _pageCount,
-                  onPageChanged: _onPageChanged,
-                  itemBuilder: (context, index) => _AyahPage(
-                    ayah: _contentAt(index),
-                    bismillahText: _showsBismillah(index) ? _bismillahText : null,
-                  ),
+                child: Stack(
+                  children: [
+                    PageView.builder(
+                      controller: _pageController,
+                      itemCount: _pageCount,
+                      onPageChanged: _onPageChanged,
+                      itemBuilder: (context, index) => _AyahPage(
+                        ayah: _contentAt(index),
+                        bismillahText: _showsBismillah(index) ? _bismillahText : null,
+                      ),
+                    ),
+                    // Tap zones over the outer edges only, so the centered
+                    // translation-toggle button in _AyahPage stays reachable.
+                    // behavior: translucent lets swipes on the PageView
+                    // underneath keep working - only a stationary tap (no
+                    // drag) is claimed here.
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: MediaQuery.of(context).size.width * 0.22,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: _currentIndex > 0 ? _goBack : null,
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: MediaQuery.of(context).size.width * 0.22,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: _goForward,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               _NavigationBar(
@@ -344,6 +393,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
                 onBack: _goBack,
                 onForward: _goForward,
                 onDone: _finishReading,
+                ayahHasanat: appState.quran.hasanatForAyah(content.surahNumber, content.ayahNumber),
               ),
             ],
           ),
@@ -382,15 +432,26 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   }
 }
 
+/// Compact so a long session's running hasanat tally never crowds out the
+/// other two chips - full precision shows up in the completion dialog
+/// instead, once the session's over and there's room for it.
+String _formatCompactHasanat(int n) {
+  if (n < 1000) return '$n';
+  if (n < 10000) return '${(n / 1000).toStringAsFixed(1)}k';
+  return '${(n / 1000).round()}k';
+}
+
 class _JuzProgressHeader extends StatelessWidget {
   final JuzProgress progress;
   final int sessionAyahCount;
   final String elapsedLabel;
+  final String hasanatLabel;
 
   const _JuzProgressHeader({
     required this.progress,
     required this.sessionAyahCount,
     required this.elapsedLabel,
+    required this.hasanatLabel,
   });
 
   @override
@@ -410,6 +471,8 @@ class _JuzProgressHeader extends StatelessWidget {
                   style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant),
                 ),
               ),
+              _StatChip(icon: Icons.auto_awesome_rounded, label: hasanatLabel),
+              const SizedBox(width: 10),
               _StatChip(icon: Icons.menu_book_rounded, label: '$sessionAyahCount'),
               const SizedBox(width: 10),
               _StatChip(icon: Icons.timer_outlined, label: elapsedLabel),
@@ -558,6 +621,7 @@ class _NavigationBar extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onForward;
   final VoidCallback onDone;
+  final int ayahHasanat;
 
   const _NavigationBar({
     required this.canGoBack,
@@ -565,6 +629,7 @@ class _NavigationBar extends StatelessWidget {
     required this.onBack,
     required this.onForward,
     required this.onDone,
+    required this.ayahHasanat,
   });
 
   @override
@@ -575,6 +640,7 @@ class _NavigationBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           IconButton.filled(
             style: IconButton.styleFrom(
@@ -596,15 +662,25 @@ class _NavigationBar extends StatelessWidget {
             onPressed: onDone,
             child: const Text("I'm done"),
           ),
-          IconButton.filled(
-            style: IconButton.styleFrom(
-              backgroundColor: colorScheme.onSurface,
-              foregroundColor: colorScheme.surface,
-              disabledBackgroundColor: colorScheme.onSurface.withValues(alpha: 0.12),
-              disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-            onPressed: canGoForward ? onForward : null,
-            icon: const Icon(Icons.arrow_forward_rounded),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '+$ayahHasanat',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colorScheme.primary),
+              ),
+              const SizedBox(height: 2),
+              IconButton.filled(
+                style: IconButton.styleFrom(
+                  backgroundColor: colorScheme.onSurface,
+                  foregroundColor: colorScheme.surface,
+                  disabledBackgroundColor: colorScheme.onSurface.withValues(alpha: 0.12),
+                  disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.3),
+                ),
+                onPressed: canGoForward ? onForward : null,
+                icon: const Icon(Icons.arrow_forward_rounded),
+              ),
+            ],
           ),
         ],
       ),
@@ -677,6 +753,223 @@ class _JumpToAyahSheetState extends State<_JumpToAyahSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Lets the reader either create a new named bookmark at the current ayah,
+/// or move an existing one here — and optionally make the result the
+/// bookmark shown on the home screen. Pops with the resulting bookmark's id
+/// so the reading screen can pick up auto-tracking it going forward.
+class _SaveBookmarkSheet extends StatefulWidget {
+  final List<Bookmark> existingBookmarks;
+  final int surahNumber;
+  final int ayahNumber;
+  final String positionLabel;
+
+  const _SaveBookmarkSheet({
+    required this.existingBookmarks,
+    required this.surahNumber,
+    required this.ayahNumber,
+    required this.positionLabel,
+  });
+
+  @override
+  State<_SaveBookmarkSheet> createState() => _SaveBookmarkSheetState();
+}
+
+class _SaveBookmarkSheetState extends State<_SaveBookmarkSheet> {
+  static const _newBookmarkChoice = '__new__';
+
+  late String _selected;
+  late final TextEditingController _nameController;
+  late bool _makeDefault;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = _newBookmarkChoice;
+    _nameController = TextEditingController();
+    _makeDefault = widget.existingBookmarks.isEmpty;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  bool get _selectedIsAlreadyDefault {
+    if (_selected == _newBookmarkChoice) return false;
+    return widget.existingBookmarks.firstWhere((b) => b.id == _selected).isDefault;
+  }
+
+  bool get _canSave => _selected != _newBookmarkChoice || _nameController.text.trim().isNotEmpty;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final appState = context.read<AppState>();
+    String bookmarkId;
+    if (_selected == _newBookmarkChoice) {
+      final bookmark = await appState.createBookmark(
+        name: _nameController.text.trim(),
+        surahNumber: widget.surahNumber,
+        ayahNumber: widget.ayahNumber,
+        isDefault: _makeDefault,
+      );
+      bookmarkId = bookmark.id;
+    } else {
+      await appState.updateBookmarkPosition(_selected, widget.surahNumber, widget.ayahNumber);
+      if (_makeDefault) await appState.setDefaultBookmark(_selected);
+      bookmarkId = _selected;
+    }
+    if (mounted) Navigator.of(context).pop(bookmarkId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Save this spot', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+          const SizedBox(height: 4),
+          Text(widget.positionLabel, style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 16),
+          _BookmarkChoiceCard(
+            selected: _selected == _newBookmarkChoice,
+            onTap: () => setState(() => _selected = _newBookmarkChoice),
+            icon: Icons.add_rounded,
+            title: 'New bookmark',
+            child: _selected == _newBookmarkChoice
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: TextField(
+                      controller: _nameController,
+                      autofocus: true,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Work, With the kids',
+                        filled: true,
+                        fillColor: colorScheme.surface,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  )
+                : null,
+          ),
+          if (widget.existingBookmarks.isNotEmpty) const SizedBox(height: 10),
+          for (final bookmark in widget.existingBookmarks) ...[
+            _BookmarkChoiceCard(
+              selected: _selected == bookmark.id,
+              onTap: () => setState(() => _selected = bookmark.id),
+              icon: bookmark.isDefault ? Icons.home_rounded : Icons.bookmark_outline_rounded,
+              title: bookmark.name,
+              subtitle: 'Move here, from Surah ${bookmark.surahNumber}, ayah ${bookmark.ayahNumber}',
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 6),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _makeDefault || _selectedIsAlreadyDefault,
+            onChanged: _selectedIsAlreadyDefault ? null : (value) => setState(() => _makeDefault = value),
+            title: const Text('Show on home screen'),
+            subtitle: Text(
+              _selectedIsAlreadyDefault ? "This is already your home screen bookmark" : 'Replaces your current home screen bookmark',
+              style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+            ),
+            activeThumbColor: colorScheme.primary,
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.onSurface,
+                foregroundColor: colorScheme.surface,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              onPressed: _canSave && !_saving ? _save : null,
+              child: _saving
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.surface),
+                    )
+                  : const Text('Save'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BookmarkChoiceCard extends StatelessWidget {
+  final bool selected;
+  final VoidCallback onTap;
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? child;
+
+  const _BookmarkChoiceCard({
+    required this.selected,
+    required this.onTap,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 18, color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                  Icon(
+                    selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                    size: 20,
+                  ),
+                ],
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
+                Text(subtitle!, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+              ],
+              ?child,
+            ],
+          ),
+        ),
       ),
     );
   }

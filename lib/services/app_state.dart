@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/bookmark.dart';
+import '../models/favorite_ayah.dart';
 import '../models/quran_script.dart';
-import '../models/reading_progress.dart';
 import '../models/streak_state.dart';
+import 'bookmarks_service.dart';
+import 'favorites_service.dart';
 import 'progress_service.dart';
 import 'quran_repository.dart';
 import 'settings_service.dart';
@@ -15,24 +18,31 @@ class AppState extends ChangeNotifier {
   final StreakService _streakService = StreakService();
   final ProgressService _progressService = ProgressService();
   final SettingsService _settingsService = SettingsService();
+  final FavoritesService _favoritesService = FavoritesService();
+  final BookmarksService _bookmarksService = BookmarksService();
 
   bool isLoaded = false;
   StreakState streakState = const StreakState();
-  ReadingProgress lastPosition = ReadingProgress.start;
+  List<Bookmark> bookmarks = const [];
   String? userName;
   AppThemeMode themeMode = AppThemeMode.light;
   bool useSimpleTranslation = false;
   QuranScript quranScript = QuranScript.indoPakNastaleeq;
+  List<FavoriteAyah> favorites = const [];
+
+  Bookmark get defaultBookmark => bookmarks.firstWhere((b) => b.isDefault, orElse: () => bookmarks.first);
 
   Future<void> init() async {
     quranScript = _settingsService.getScript();
     await quran.load(quranScript);
     await _streakService.reconcileToYesterday();
     streakState = _streakService.getState();
-    lastPosition = _progressService.getLastPosition();
+    await _bookmarksService.migrateLegacyPosition(_progressService.getLastPosition());
+    bookmarks = _bookmarksService.getAll();
     userName = _settingsService.getName();
     themeMode = _settingsService.getThemeMode();
     useSimpleTranslation = _settingsService.getUseSimpleTranslation();
+    favorites = _favoritesService.getAll();
     isLoaded = true;
     notifyListeners();
   }
@@ -71,18 +81,64 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Updates streak/stats tracking only. Does not touch the "Continue
-  /// Reading" resume point — callers decide separately, via
-  /// [saveLastPosition], whether this read should move that pointer.
+  /// Updates streak/stats tracking only. Does not touch any bookmark's
+  /// position — callers decide separately, via [updateBookmarkPosition],
+  /// whether this read should move a bookmark.
   Future<void> recordAyahRead(int surahNumber, int ayahNumber) async {
-    await _streakService.recordAyahRead(surahNumber, ayahNumber);
+    final hasanat = quran.hasanatForAyah(surahNumber, ayahNumber);
+    await _streakService.recordAyahRead(surahNumber, ayahNumber, hasanat);
     streakState = _streakService.getState();
     notifyListeners();
   }
 
-  Future<void> saveLastPosition(ReadingProgress progress) async {
-    lastPosition = progress;
-    await _progressService.saveLastPosition(progress);
+  Future<void> updateBookmarkPosition(String bookmarkId, int surahNumber, int ayahNumber) async {
+    await _bookmarksService.updatePosition(bookmarkId, surahNumber, ayahNumber);
+    bookmarks = _bookmarksService.getAll();
+    notifyListeners();
+  }
+
+  Future<Bookmark> createBookmark({
+    required String name,
+    required int surahNumber,
+    required int ayahNumber,
+    required bool isDefault,
+  }) async {
+    final bookmark = await _bookmarksService.create(
+      name: name,
+      surahNumber: surahNumber,
+      ayahNumber: ayahNumber,
+      isDefault: isDefault,
+    );
+    bookmarks = _bookmarksService.getAll();
+    notifyListeners();
+    return bookmark;
+  }
+
+  Future<void> renameBookmark(String id, String name) async {
+    await _bookmarksService.rename(id, name);
+    bookmarks = _bookmarksService.getAll();
+    notifyListeners();
+  }
+
+  Future<void> setDefaultBookmark(String id) async {
+    await _bookmarksService.setDefault(id);
+    bookmarks = _bookmarksService.getAll();
+    notifyListeners();
+  }
+
+  /// Refuses to delete the last remaining bookmark — the app always needs
+  /// exactly one bookmark so the home screen always has somewhere to point.
+  /// If the deleted bookmark was the default, the most recently updated
+  /// remaining one is promoted automatically.
+  Future<void> deleteBookmark(String id) async {
+    if (bookmarks.length <= 1) return;
+    final wasDefault = bookmarks.firstWhere((b) => b.id == id).isDefault;
+    await _bookmarksService.delete(id);
+    bookmarks = _bookmarksService.getAll();
+    if (wasDefault && bookmarks.isNotEmpty) {
+      await _bookmarksService.setDefault(bookmarks.first.id);
+      bookmarks = _bookmarksService.getAll();
+    }
     notifyListeners();
   }
 
@@ -111,10 +167,28 @@ class AppState extends ChangeNotifier {
   int get totalReadingSeconds => _streakService.getTotalReadingSeconds();
   int get readingSecondsToday => _streakService.readingSecondsToday();
   int get readingSecondsThisWeek => _streakService.readingSecondsThisWeek();
+  int get hasanatToday => _streakService.hasanatToday();
+  int get hasanatThisWeek => _streakService.hasanatThisWeek();
+  int get totalHasanat => _streakService.totalHasanat();
+
+  bool wasReadOnDate(DateTime date) => _streakService.ayahsReadOn(date) > 0;
 
   Future<void> addReadingSeconds(int seconds) => _streakService.addReadingSeconds(seconds);
 
   int get sessionCount => _streakService.getSessionCount();
 
   Future<void> recordSessionStarted() => _streakService.recordSessionStarted();
+
+  bool isFavorite(int surahNumber, int ayahNumber) =>
+      favorites.any((f) => f.surahNumber == surahNumber && f.ayahNumber == ayahNumber);
+
+  Future<void> toggleFavorite(int surahNumber, int ayahNumber) async {
+    if (isFavorite(surahNumber, ayahNumber)) {
+      await _favoritesService.remove(surahNumber, ayahNumber);
+    } else {
+      await _favoritesService.add(surahNumber, ayahNumber);
+    }
+    favorites = _favoritesService.getAll();
+    notifyListeners();
+  }
 }

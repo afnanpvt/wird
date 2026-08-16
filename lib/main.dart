@@ -120,25 +120,63 @@ class _BootstrapState extends State<_Bootstrap> {
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
+    final Widget child;
+    final Key key;
+
     if (!appState.isLoaded) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    if (!appState.hasCompletedOnboarding) {
-      return const OnboardingScreen();
-    }
-    if (!_welcomeChecked) {
-      _welcomeChecked = true;
-      final kind = appState.checkWelcomeModal();
-      if (kind == 'back') {
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (!mounted) return;
-          await showWelcomeDialog(context, isFirstLaunch: false);
-          await appState.markWelcomeModalShown();
-        });
-      } else if (kind == 'first') {
-        appState.markWelcomeModalShown();
+      child = const _LoadingScreen();
+      key = const ValueKey('loading');
+    } else if (!appState.hasCompletedOnboarding) {
+      child = const OnboardingScreen();
+      key = const ValueKey('onboarding');
+    } else {
+      if (!_welcomeChecked) {
+        _welcomeChecked = true;
+        final kind = appState.checkWelcomeModal();
+        if (kind == 'back') {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            await showWelcomeDialog(context, isFirstLaunch: false);
+            await appState.markWelcomeModalShown();
+          });
+        } else if (kind == 'first') {
+          appState.markWelcomeModalShown();
+        }
       }
+      child = const HomeScreen();
+      key = const ValueKey('home');
     }
-    return const HomeScreen();
+
+    // Cross-fades from the branded loading screen into the real app once
+    // AppState finishes loading, instead of an abrupt cut.
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+      child: KeyedSubtree(key: key, child: child),
+    );
+  }
+}
+
+/// Shown while [AppState.init] loads the Quran text and reading history off
+/// disk - just the wordmark, matching the native Android launch screen
+/// (see android/app/src/main/res/drawable{,-night}/launch_background.xml)
+/// so there's no visible handoff between the OS splash and this screen, and
+/// no spinner competing with a moment that's meant to read as a brand beat,
+/// not a wait.
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Image.asset(
+          Theme.of(context).brightness == Brightness.dark
+              ? 'assets/images/logo_foreground_dark.png'
+              : 'assets/images/logo_foreground.png',
+          height: 120,
+        ),
+      ),
+    );
   }
 }

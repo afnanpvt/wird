@@ -20,6 +20,7 @@ class StreakService {
   Box get _dailyLogsBox => Hive.box(HiveBoxes.dailyLogs);
   Box get _dailyReadingSecondsBox => Hive.box(HiveBoxes.dailyReadingSeconds);
   Box get _readAyahsBox => Hive.box(HiveBoxes.readAyahs);
+  Box get _dailyHasanatBox => Hive.box(HiveBoxes.dailyHasanat);
 
   StreakState getState() {
     final map = _streakBox.get('state');
@@ -77,12 +78,18 @@ class StreakService {
     await _saveLastProcessedDate(yesterday);
   }
 
-  /// Call whenever the user reads an ayah (i.e. views a page in the reading screen).
-  Future<void> recordAyahRead(int surahNumber, int ayahNumber) async {
+  /// Call whenever the user reads an ayah (i.e. views a page in the reading
+  /// screen). [hasanat] is that ayah's reward value - see
+  /// [QuranRepository.hasanatForAyah].
+  Future<void> recordAyahRead(int surahNumber, int ayahNumber, int hasanat) async {
     final today = dateOnly(DateTime.now());
     final todayCount = (_dailyLogsBox.get(dateKey(today)) as int? ?? 0) + 1;
     await _dailyLogsBox.put(dateKey(today), todayCount);
     _markAyahRead(surahNumber, ayahNumber);
+
+    final todayHasanat = (_dailyHasanatBox.get(dateKey(today)) as int? ?? 0) + hasanat;
+    await _dailyHasanatBox.put(dateKey(today), todayHasanat);
+    await _streakBox.put('totalHasanat', totalHasanat() + hasanat);
 
     final lastProcessed = getLastProcessedDate();
     if (lastProcessed.isBefore(today)) {
@@ -141,6 +148,21 @@ class StreakService {
     }
     return total;
   }
+
+  int hasanatOn(DateTime date) => _dailyHasanatBox.get(dateKey(date)) as int? ?? 0;
+
+  int hasanatToday() => hasanatOn(DateTime.now());
+
+  int hasanatThisWeek() {
+    var total = 0;
+    final today = dateOnly(DateTime.now());
+    for (var i = 0; i < 7; i++) {
+      total += hasanatOn(today.subtract(Duration(days: i)));
+    }
+    return total;
+  }
+
+  int totalHasanat() => _streakBox.get('totalHasanat') as int? ?? 0;
 
   /// Number of times a reading screen has been opened. Counted at session
   /// start rather than on "I'm done", since many sessions end by just

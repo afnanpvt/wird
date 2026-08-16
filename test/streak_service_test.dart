@@ -14,6 +14,7 @@ void main() {
     await Hive.openBox(HiveBoxes.streak);
     await Hive.openBox(HiveBoxes.dailyLogs);
     await Hive.openBox(HiveBoxes.readAyahs);
+    await Hive.openBox(HiveBoxes.dailyHasanat);
   });
 
   tearDown(() async {
@@ -23,15 +24,15 @@ void main() {
 
   test('first ever read on a fresh install advances the streak to 1, not 0', () async {
     final service = StreakService();
-    await service.recordAyahRead(1, 1);
+    await service.recordAyahRead(1, 1, 10);
     expect(service.getState().currentStreak, 1);
   });
 
   test('reading multiple times on the first day only counts the streak once', () async {
     final service = StreakService();
-    await service.recordAyahRead(1, 1);
-    await service.recordAyahRead(1, 1);
-    await service.recordAyahRead(1, 1);
+    await service.recordAyahRead(1, 1, 10);
+    await service.recordAyahRead(1, 1, 10);
+    await service.recordAyahRead(1, 1, 10);
 
     expect(service.getState().currentStreak, 1);
     expect(service.ayahsReadToday(), 3);
@@ -42,7 +43,7 @@ void main() {
     await service.reconcileToYesterday();
     expect(service.getState().currentStreak, 0);
 
-    await service.recordAyahRead(1, 1);
+    await service.recordAyahRead(1, 1, 10);
     expect(service.getState().currentStreak, 1, reason: 'today should still be countable after reconciling');
   });
 }

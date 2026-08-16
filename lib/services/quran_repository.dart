@@ -14,6 +14,7 @@ class QuranRepository {
   Map<int, List<Ayah>> _ayahsBySurah = {};
   List<Ayah> _allAyahs = [];
   Map<String, int> _globalIndex = {};
+  Map<String, int> _lettersPerAyah = {};
   QuranScript? _loadedScript;
 
   Future<void> load(QuranScript script) async {
@@ -27,6 +28,17 @@ class QuranRepository {
 
       final juzJson = await rootBundle.loadString('assets/data/juz_starts.json');
       _juzs = (jsonDecode(juzJson) as List).map((e) => Juz.fromJson(e as Map<String, dynamic>)).toList();
+
+      // Precomputed by tool/generate_hasanat_data.dart, not counted here at
+      // runtime - see that script for the counting rule and its source.
+      final letterCountsJson = await rootBundle.loadString('assets/data/quran_letter_counts.json');
+      final letterCounts = (jsonDecode(letterCountsJson) as Map<String, dynamic>)['quran'] as List;
+      final lettersPerAyah = <String, int>{};
+      for (final v in letterCounts) {
+        final map = v as Map<String, dynamic>;
+        lettersPerAyah['${map['chapter']}:${map['verse']}'] = map['letters'] as int;
+      }
+      _lettersPerAyah = lettersPerAyah;
     }
 
     final arabicJson = await rootBundle.loadString(script.dataAsset);
@@ -102,6 +114,13 @@ class QuranRepository {
   List<Ayah> ayahsForSurah(int surahNumber) => _ayahsBySurah[surahNumber] ?? const [];
 
   int get totalAyahCount => _allAyahs.length;
+
+  /// Hasanat (reward) for reciting this ayah, per the hadith that every
+  /// Arabic letter of the Quran earns a reward multiplied tenfold
+  /// (Tirmidhi 2910: "...Alif is a letter, Lam is a letter, Meem is a
+  /// letter"). The letter count itself is precomputed - see
+  /// tool/generate_hasanat_data.dart for the counting rule and its source.
+  int hasanatForAyah(int surahNumber, int ayahNumber) => (_lettersPerAyah['$surahNumber:$ayahNumber'] ?? 0) * 10;
 
   /// Curated for comfort, hope and reassurance rather than picked from the
   /// full text at random (which can just as easily land on a legal or

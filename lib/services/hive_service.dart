@@ -7,6 +7,9 @@ class HiveBoxes {
   static const dailyReadingSeconds = 'dailyReadingSeconds';
   static const readAyahs = 'readAyahs';
   static const settings = 'settings';
+  static const favoriteAyahs = 'favoriteAyahs';
+  static const bookmarks = 'bookmarks';
+  static const dailyHasanat = 'dailyHasanat';
 }
 
 Future<void> initHive() async {
@@ -17,4 +20,7 @@ Future<void> initHive() async {
   await Hive.openBox(HiveBoxes.dailyReadingSeconds);
   await Hive.openBox(HiveBoxes.readAyahs);
   await Hive.openBox(HiveBoxes.settings);
+  await Hive.openBox(HiveBoxes.favoriteAyahs);
+  await Hive.openBox(HiveBoxes.bookmarks);
+  await Hive.openBox(HiveBoxes.dailyHasanat);
 }

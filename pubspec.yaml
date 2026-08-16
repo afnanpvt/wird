@@ -80,6 +80,7 @@ flutter:
     - assets/data/quran_en_simple.json
     - assets/data/surah_list.json
     - assets/data/juz_starts.json
+    - assets/data/quran_letter_counts.json
     - assets/images/logo_foreground.png
     - assets/images/logo_foreground_dark.png
 

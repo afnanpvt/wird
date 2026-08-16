@@ -11,14 +11,14 @@ class BrowseScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           elevation: 0,
           title: const Text('Browse'),
-          bottom: const TabBar(tabs: [Tab(text: 'Surah'), Tab(text: 'Juz')]),
+          bottom: const TabBar(tabs: [Tab(text: 'Surah'), Tab(text: 'Juz'), Tab(text: 'Saved')]),
         ),
-        body: const TabBarView(children: [_SurahListView(), _JuzListView()]),
+        body: const TabBarView(children: [_SurahListView(), _JuzListView(), _SavedListView()]),
       ),
     );
   }
@@ -103,6 +103,82 @@ class _JuzListView extends StatelessWidget {
               builder: (_) => ReadingScreen(
                 initialSurahNumber: juz.startSurah,
                 initialAyahNumber: juz.startAyah,
+                updatesContinuePoint: false,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SavedListView extends StatelessWidget {
+  const _SavedListView();
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final favorites = appState.favorites;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (favorites.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.favorite_border, size: 40, color: colorScheme.onSurfaceVariant),
+              const SizedBox(height: 12),
+              Text(
+                'No saved verses yet',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Tap the heart while reading a verse to save it here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: favorites.length,
+      separatorBuilder: (_, _) => Divider(height: 1, color: colorScheme.outlineVariant),
+      itemBuilder: (context, index) {
+        final favorite = favorites[index];
+        final surah = appState.quran.surahByNumber(favorite.surahNumber);
+        final ayah = appState.quran.ayahsForSurah(favorite.surahNumber)[favorite.ayahNumber - 1];
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          title: Text(
+            '${surah.englishName} · ${favorite.ayahNumber}',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              appState.useSimpleTranslation ? ayah.simpleEnglishText : ayah.englishText,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+          ),
+          trailing: IconButton(
+            tooltip: 'Remove from saved verses',
+            icon: Icon(Icons.favorite, color: colorScheme.primary),
+            onPressed: () => appState.toggleFavorite(favorite.surahNumber, favorite.ayahNumber),
+          ),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ReadingScreen(
+                initialSurahNumber: favorite.surahNumber,
+                initialAyahNumber: favorite.ayahNumber,
                 updatesContinuePoint: false,
               ),
             ),

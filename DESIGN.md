@@ -76,6 +76,24 @@ All solid/outlined/filled buttons (primary CTAs, nav arrows, "I'm done") are **m
 - Ayah content is vertically centered within the available reading area (not pinned to the top) so short ayahs land at a comfortable eye-line instead of requiring the user to look up the screen; long ayahs still scroll normally from the top.
 - No nested cards anywhere.
 
+## Splash / cold start
+
+**The splash is always LIGHT (cream `#FAF7F2` + black wordmark), regardless of the OS dark-mode setting. There are deliberately no `-night` resources. Do not add them back.**
+
+The native launch window is drawn by the system before the app's process exists, so it cannot read the reader's in-app theme choice - that lives in Hive and needs Flutter running. `-night` follows the *OS* setting, but this app's own theme defaults to light, so honouring `-night` guaranteed a mismatch: a near-black splash handing off to a cream app. Always-light matches the default and costs nothing on every other path. (The only real lever is `UiModeManager.setApplicationNightMode`, API 31+, which persists only from the second launch onward - not worth native code for this.)
+
+A `-night` variant of the *wordmark* is especially dangerous: a reference is re-resolved per-configuration at draw time no matter which `values-*` directory the style came from, so a lone `drawable-night/splash_logo.png` will paint a white wordmark onto the cream background and vanish, even with every style file corrected.
+
+Android 12+ (API 31) is a separate path from older releases and must be configured separately - `values-v31/styles.xml`:
+
+- It **ignores `windowBackground`** on cold start. Unconfigured, it draws the *launcher icon* over the theme background, which is where the oversized wordmark screen came from. `launch_background.xml` still covers API 30 and below, so both must be kept in sync.
+- **The icon drawable's intrinsic size is ignored.** The framework force-calls `setBounds()` on it twice (`SplashscreenIconDrawableFactory`), so a `<layer-list>` declaring `android:width="120dp"`, or a transparent `<shape><size/></shape>` spacer, is overruled and magnified. Both were tried; both failed.
+- **The outer third is always masked away**, and the mask silhouette is device-dependent (AOSP ships a rounded square, Pixel and several OEMs substitute a circle). There is no opt-out. Design to the inscribed circle.
+
+The one technique that survives all of that is to bake the padding into the artwork's own pixels, so the art occupies a fixed *fraction* of its canvas - preserved exactly at any density, on any device, with or without an icon background colour. `tool/generate_splash_icon.js` does this: it centres the 432px wordmark on a 1036px transparent canvas (41.7%), which lands at ~120dp inside the 288dp icon canvas, matching `_LoadingScreen`'s `Image.asset(height: 120)` exactly and sitting well inside the 192dp visible region. Re-run it if `splash_logo.png` changes.
+
+Leave `windowSplashScreenIconBackgroundColor` unset: setting it shrinks the icon canvas 288dp → 240dp (invalidating the sizing above) and draws a masked shape behind the wordmark.
+
 ## Motion
 
 - 150–250ms ease-out on standard transitions and taps.
@@ -89,4 +107,5 @@ All solid/outlined/filled buttons (primary CTAs, nav arrows, "I'm done") are **m
 - Ayah panel: surface-color rounded block (24px radius), no shadow, hairline border on the translation panel only.
 - Reading-screen header: Juz progress (verses left + percent bar) and two small stat chips (ayahs read this session, lifetime reading-time timer that pauses when the app is backgrounded).
 - Translation toggle: a small, non-distracting text link ("I don't understand" / "Show original translation") beneath the translation panel, switching between Saheeh International and The Clear Quran (Khattab) - the choice persists across ayahs and surahs until switched back.
+- Transliteration (off by default, toggled from the reading screen's Display sheet): plain italic text directly beneath the Arabic block, not another bordered card - it rides along with the Arabic rather than competing with the translation panel for attention. `assets/data/quran_en_transliteration.json` is `fawazahmed0/quran-api`'s `ara-quranphoneticst` edition (Unlicense/public domain). It's a scholarly Latin transliteration with diacritics (ā/ī/ū macrons, `ĥ` for ḥ, `đ` for ḍ), not a casual phonetic spelling - accurate but assumes the reader already knows the convention. Verified before bundling: 6236 entries, chapter/verse order matches `quran_ar_uthmani.json` exactly, zero empty entries, per-surah counts match `surah_list.json`.
 - Home "Continue Reading" card: shows the exact surah + ayah position that will be resumed, with a black/white pill "Read more" button - not a generic unlabeled CTA.

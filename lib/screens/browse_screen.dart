@@ -3,13 +3,43 @@ import 'package:provider/provider.dart';
 
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
+import '../widgets/quick_page_physics.dart';
 import 'reading_screen.dart';
 
-class BrowseScreen extends StatelessWidget {
+/// Lowercases and strips everything but letters/digits, so "Al-Baqara",
+/// "al baqara" and "ALBAQARA" all compare equal - the transliterated names
+/// in the data use hyphens and capitalization inconsistently enough that a
+/// literal substring match would miss obvious hits.
+String _normalize(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+bool _matchesQuery(String query, {required int number, required List<String> names}) {
+  if (query.isEmpty) return true;
+  if (number.toString().startsWith(query.trim())) return true;
+  final normalizedQuery = _normalize(query);
+  return names.any((name) => _normalize(name).contains(normalizedQuery));
+}
+
+class BrowseScreen extends StatefulWidget {
   const BrowseScreen({super.key});
 
   @override
+  State<BrowseScreen> createState() => _BrowseScreenState();
+}
+
+class _BrowseScreenState extends State<BrowseScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return DefaultTabController(
       length: 3,
       child: Scaffold(
@@ -18,20 +48,92 @@ class BrowseScreen extends StatelessWidget {
           title: const Text('Browse'),
           bottom: const TabBar(tabs: [Tab(text: 'Surah'), Tab(text: 'Juz'), Tab(text: 'Saved')]),
         ),
-        body: const TabBarView(children: [_SurahListView(), _JuzListView(), _SavedListView()]),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+              child: TextField(
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Search by name or number',
+                  prefixIcon: Icon(Icons.search_rounded, color: colorScheme.onSurfaceVariant),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                        ),
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerLow,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                onChanged: (value) => setState(() => _query = value),
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                physics: const QuickPageScrollPhysics(),
+                children: [
+                  _SurahListView(query: _query),
+                  _JuzListView(query: _query),
+                  _SavedListView(query: _query),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptySearchResult extends StatelessWidget {
+  const _EmptySearchResult();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off_rounded, size: 40, color: colorScheme.onSurfaceVariant),
+            const SizedBox(height: 12),
+            Text(
+              'No matches',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _SurahListView extends StatelessWidget {
-  const _SurahListView();
+  final String query;
+
+  const _SurahListView({required this.query});
 
   @override
   Widget build(BuildContext context) {
-    final surahs = context.read<AppState>().quran.surahs;
+    final allSurahs = context.read<AppState>().quran.surahs;
     final fontFamily = context.watch<AppState>().quranScript.fontFamily;
     final colorScheme = Theme.of(context).colorScheme;
+
+    final surahs = allSurahs
+        .where((s) => _matchesQuery(query, number: s.number, names: [s.name, s.englishName]))
+        .toList();
+
+    if (surahs.isEmpty) return const _EmptySearchResult();
 
     return ListView.separated(
       itemCount: surahs.length,
@@ -67,13 +169,19 @@ class _SurahListView extends StatelessWidget {
 }
 
 class _JuzListView extends StatelessWidget {
-  const _JuzListView();
+  final String query;
+
+  const _JuzListView({required this.query});
 
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
-    final juzs = appState.quran.juzs;
+    final allJuzs = appState.quran.juzs;
     final colorScheme = Theme.of(context).colorScheme;
+
+    final juzs = allJuzs.where((j) => _matchesQuery(query, number: j.number, names: [j.name])).toList();
+
+    if (juzs.isEmpty) return const _EmptySearchResult();
 
     return ListView.separated(
       itemCount: juzs.length,
@@ -114,15 +222,17 @@ class _JuzListView extends StatelessWidget {
 }
 
 class _SavedListView extends StatelessWidget {
-  const _SavedListView();
+  final String query;
+
+  const _SavedListView({required this.query});
 
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
-    final favorites = appState.favorites;
+    final allFavorites = appState.favorites;
     final colorScheme = Theme.of(context).colorScheme;
 
-    if (favorites.isEmpty) {
+    if (allFavorites.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -146,6 +256,13 @@ class _SavedListView extends StatelessWidget {
         ),
       );
     }
+
+    final favorites = allFavorites.where((f) {
+      final surah = appState.quran.surahByNumber(f.surahNumber);
+      return _matchesQuery(query, number: surah.number, names: [surah.name, surah.englishName]);
+    }).toList();
+
+    if (favorites.isEmpty) return const _EmptySearchResult();
 
     return ListView.separated(
       itemCount: favorites.length,

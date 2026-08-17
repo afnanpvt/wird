@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +9,29 @@ import 'services/hive_service.dart';
 import 'widgets/welcome_dialog.dart';
 
 final routeObserver = RouteObserver<PageRoute<void>>();
+
+/// Android's default scroll behavior pairs clamping physics with a
+/// stretch-on-overscroll effect - the combination is what reads as
+/// "glitchy" on the ayah/calendar/tab PageViews, which visibly warp when a
+/// swipe hits either end. Bouncing physics (no stretch needed, it already
+/// rubber-bands) gives every scrollable and PageView in the app - reading,
+/// the streak calendar, the Browse tabs - the same smooth feel everywhere,
+/// with no per-screen wiring.
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.trackpad,
+      };
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) => const BouncingScrollPhysics();
+
+  @override
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) => child;
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +76,7 @@ class WirdApp extends StatelessWidget {
     return MaterialApp(
       title: 'wird.',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: _AppScrollBehavior(),
       themeMode: themeMode,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
@@ -97,6 +122,18 @@ class WirdApp extends StatelessWidget {
       textTheme: Typography.material2021(platform: TargetPlatform.android)
           .black
           .apply(fontFamily: 'Inter', bodyColor: ink, displayColor: ink),
+      // Matches the app's existing "inverted ink chip" look (the selected
+      // segment in Settings' appearance picker, the "Go" button in the
+      // jump-to-ayah sheet) rather than the stock grey Material tooltip,
+      // which reads as a generic system bubble against everywhere else's
+      // deliberate palette.
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(color: ink, borderRadius: BorderRadius.circular(12)),
+        textStyle: TextStyle(fontFamily: 'Inter', fontSize: 12.5, height: 1.4, fontWeight: FontWeight.w500, color: background),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        showDuration: const Duration(seconds: 3),
+      ),
     );
   }
 }
@@ -159,10 +196,18 @@ class _BootstrapState extends State<_Bootstrap> {
 
 /// Shown while [AppState.init] loads the Quran text and reading history off
 /// disk - just the wordmark, matching the native Android launch screen
-/// (see android/app/src/main/res/drawable{,-night}/launch_background.xml)
-/// so there's no visible handoff between the OS splash and this screen, and
-/// no spinner competing with a moment that's meant to read as a brand beat,
-/// not a wait.
+/// (android/app/src/main/res/drawable/launch_background.xml and, on Android
+/// 12+, the windowSplashScreen* attributes in values-v31/styles.xml) so
+/// there's no visible handoff between the OS splash and this screen, and no
+/// spinner competing with a moment that's meant to read as a brand beat, not
+/// a wait.
+///
+/// The native side of that handoff is always LIGHT - it cannot read this
+/// app's theme preference, which lives in Hive and needs Flutter running. So
+/// this screen matches it exactly on the default light theme. If the reader
+/// has chosen the dark theme, the cream-to-dark cut lands here rather than
+/// one screen later; that's deliberate, since arriving on a screen that
+/// already matches the app is better than carrying cream into a dark app.
 class _LoadingScreen extends StatelessWidget {
   const _LoadingScreen();
 

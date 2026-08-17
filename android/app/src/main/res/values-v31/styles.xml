@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 (API 31) replaced the old "windowBackground is the splash"
+     behaviour with the system SplashScreen API, which IGNORES
+     @drawable/launch_background on a cold start and instead draws an icon,
+     large and centered, over windowSplashScreenBackground. Left unconfigured
+     it uses the launcher icon, which is how this app ended up showing an
+     oversized wordmark before its real splash. These attributes point the
+     system splash at the same artwork, at the same size, on the same
+     background, so it is indistinguishable from Flutter's first frame.
+
+     There is deliberately NO values-night-v31 counterpart, and no
+     values-night at all: the splash is always light. See DESIGN.md for why
+     (short version - the native splash follows the OS dark-mode setting, but
+     this app's own theme defaults to light and cannot be read before Flutter
+     starts, so following the OS guarantees a mismatch).
+
+     windowSplashScreenIconBackgroundColor is intentionally left unset: setting
+     it shrinks the icon canvas from 288dp to 240dp, and no circle behind the
+     wordmark is wanted anyway. @drawable/splash_screen_icon is sized for the
+     288dp canvas - see tool/generate_splash_icon.js. -->
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_background_light</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_screen_icon</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@color/splash_background_light</item>
+    </style>
+</resources>

@@ -78,6 +78,7 @@ flutter:
     - assets/data/quran_ar_uthmani.json
     - assets/data/quran_en_saheeh.json
     - assets/data/quran_en_simple.json
+    - assets/data/quran_en_transliteration.json
     - assets/data/surah_list.json
     - assets/data/juz_starts.json
     - assets/data/quran_letter_counts.json

@@ -50,6 +50,12 @@ class QuranRepository {
     final simpleJson = await rootBundle.loadString('assets/data/quran_en_simple.json');
     final simpleVerses = (jsonDecode(simpleJson) as Map<String, dynamic>)['quran'] as List;
 
+    // Source: fawazahmed0/quran-api, edition "ara-quranphoneticst" (Unlicense
+    // / public domain). Verified offline against quran_ar_uthmani.json before
+    // bundling: 6236 entries, same chapter/verse order, no gaps.
+    final transliterationJson = await rootBundle.loadString('assets/data/quran_en_transliteration.json');
+    final transliterationVerses = (jsonDecode(transliterationJson) as Map<String, dynamic>)['quran'] as List;
+
     final ayahsBySurah = <int, List<Ayah>>{};
     final allAyahs = <Ayah>[];
     final globalIndex = <String, int>{};
@@ -58,6 +64,7 @@ class QuranRepository {
       final ar = arabicVerses[i] as Map<String, dynamic>;
       final en = englishVerses[i] as Map<String, dynamic>;
       final simple = simpleVerses[i] as Map<String, dynamic>;
+      final translit = transliterationVerses[i] as Map<String, dynamic>;
       final surahNumber = ar['chapter'] as int;
       final ayah = Ayah(
         surahNumber: surahNumber,
@@ -65,6 +72,7 @@ class QuranRepository {
         arabicText: ar['text'] as String,
         englishText: en['text'] as String,
         simpleEnglishText: simple['text'] as String,
+        transliterationText: translit['text'] as String,
       );
       ayahsBySurah.putIfAbsent(surahNumber, () => []).add(ayah);
       globalIndex['$surahNumber:${ayah.ayahNumber}'] = allAyahs.length;

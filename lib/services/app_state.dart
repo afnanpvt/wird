@@ -29,6 +29,9 @@ class AppState extends ChangeNotifier {
   bool useSimpleTranslation = false;
   QuranScript quranScript = QuranScript.indoPakNastaleeq;
   List<FavoriteAyah> favorites = const [];
+  double fontScale = 1.0;
+  bool showTranslation = true;
+  bool showTransliteration = false;
 
   Bookmark get defaultBookmark => bookmarks.firstWhere((b) => b.isDefault, orElse: () => bookmarks.first);
 
@@ -42,6 +45,9 @@ class AppState extends ChangeNotifier {
     userName = _settingsService.getName();
     themeMode = _settingsService.getThemeMode();
     useSimpleTranslation = _settingsService.getUseSimpleTranslation();
+    fontScale = _settingsService.getFontScale();
+    showTranslation = _settingsService.getShowTranslation();
+    showTransliteration = _settingsService.getShowTransliteration();
     favorites = _favoritesService.getAll();
     isLoaded = true;
     notifyListeners();
@@ -78,6 +84,24 @@ class AppState extends ChangeNotifier {
   Future<void> setUseSimpleTranslation(bool value) async {
     useSimpleTranslation = value;
     await _settingsService.saveUseSimpleTranslation(value);
+    notifyListeners();
+  }
+
+  Future<void> setFontScale(double scale) async {
+    fontScale = scale;
+    await _settingsService.saveFontScale(scale);
+    notifyListeners();
+  }
+
+  Future<void> setShowTranslation(bool value) async {
+    showTranslation = value;
+    await _settingsService.saveShowTranslation(value);
+    notifyListeners();
+  }
+
+  Future<void> setShowTransliteration(bool value) async {
+    showTransliteration = value;
+    await _settingsService.saveShowTransliteration(value);
     notifyListeners();
   }
 

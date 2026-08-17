@@ -4,6 +4,7 @@ class Ayah {
   final String arabicText;
   final String englishText;
   final String simpleEnglishText;
+  final String transliterationText;
 
   const Ayah({
     required this.surahNumber,
@@ -11,5 +12,6 @@ class Ayah {
     required this.arabicText,
     required this.englishText,
     required this.simpleEnglishText,
+    required this.transliterationText,
   });
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:confetti/confetti.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,6 +13,7 @@ import '../models/juz_progress.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
 import '../widgets/completion_dialog.dart';
+import '../widgets/quick_page_physics.dart';
 
 /// Surahs that traditionally omit the opening Bismillah (only At-Tawbah).
 const _surahsWithoutBismillah = {9};
@@ -69,8 +71,19 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   int _sessionHasanat = 0;
   late final ConfettiController _confettiController;
 
-  Duration _elapsed = Duration.zero;
+  /// Held in a notifier rather than plain state so the once-a-second tick
+  /// repaints only the timer chip. A setState here would rebuild the whole
+  /// screen - including the PageView and its Arabic text layout - once every
+  /// second, which lands mid-swipe and drops frames.
+  final ValueNotifier<Duration> _elapsed = ValueNotifier(Duration.zero);
   Timer? _ticker;
+
+  /// Reading time is counted every second but only written to disk every
+  /// [_flushEverySeconds] (and on pause/exit). Persisting each tick meant two
+  /// Hive writes a second for the entire session.
+  static const _flushEverySeconds = 10;
+  int _unflushedSeconds = 0;
+  late final AppState _appState;
 
   int get _pageCount => _ayahs.length;
   bool get _isTracking => _trackingBookmarkId != null;
@@ -80,6 +93,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final appState = context.read<AppState>();
+    _appState = appState;
     final quran = appState.quran;
     _ayahs = quran.ayahsForSurah(widget.initialSurahNumber);
     _hasBismillah = widget.initialSurahNumber != 1 && !_surahsWithoutBismillah.contains(widget.initialSurahNumber);
@@ -92,7 +106,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _sessionAyahCount = 1;
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
     _lastJuzNumber = quran.juzProgressFor(widget.initialSurahNumber, widget.initialAyahNumber).juzNumber;
-    _elapsed = Duration(seconds: context.read<AppState>().totalReadingSeconds);
+    _elapsed.value = Duration(seconds: context.read<AppState>().totalReadingSeconds);
     _recordPage(_currentIndex);
     context.read<AppState>().recordSessionStarted();
     _startTicker();
@@ -108,9 +122,11 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     routeObserver.unsubscribe(this);
+    _ticker?.cancel();
+    _flushReadingSeconds();
     _pageController.dispose();
     _confettiController.dispose();
-    _ticker?.cancel();
+    _elapsed.dispose();
     super.dispose();
   }
 
@@ -128,14 +144,24 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      context.read<AppState>().addReadingSeconds(1);
-      setState(() => _elapsed += const Duration(seconds: 1));
+      _elapsed.value += const Duration(seconds: 1);
+      _unflushedSeconds++;
+      if (_unflushedSeconds >= _flushEverySeconds) _flushReadingSeconds();
     });
   }
 
   void _stopTicker() {
     _ticker?.cancel();
     _ticker = null;
+    _flushReadingSeconds();
+  }
+
+  void _flushReadingSeconds() {
+    if (_unflushedSeconds == 0) return;
+    // Uses the reference captured in initState rather than a context lookup,
+    // so this is still safe to call while the screen is being disposed.
+    _appState.addReadingSeconds(_unflushedSeconds);
+    _unflushedSeconds = 0;
   }
 
   bool _showsBismillah(int index) => _hasBismillah && index == 0;
@@ -178,6 +204,14 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     if (_trackingBookmarkId != null) {
       appState.updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
     }
+  }
+
+  Future<void> _showDisplaySettingsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => const _DisplaySettingsSheet(),
+    );
   }
 
   Future<void> _showSaveBookmarkSheet() async {
@@ -291,10 +325,10 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     if (mounted) Navigator.of(context).pop();
   }
 
-  String get _elapsedLabel {
-    final hours = _elapsed.inHours;
-    final minutes = (_elapsed.inMinutes % 60).toString().padLeft(2, '0');
-    final seconds = (_elapsed.inSeconds % 60).toString().padLeft(2, '0');
+  static String _formatElapsed(Duration elapsed) {
+    final hours = elapsed.inHours;
+    final minutes = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
     if (hours > 0) return '$hours:$minutes:$seconds';
     return '$minutes:$seconds';
   }
@@ -335,6 +369,11 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
             icon: const Icon(Icons.format_list_numbered_rounded),
             onPressed: _showJumpToAyahSheet,
           ),
+          IconButton(
+            tooltip: 'Display settings',
+            icon: const Icon(Icons.text_fields_rounded),
+            onPressed: _showDisplaySettingsSheet,
+          ),
         ],
       ),
       body: Stack(
@@ -344,7 +383,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
               _JuzProgressHeader(
                 progress: juzProgress,
                 sessionAyahCount: _sessionAyahCount,
-                elapsedLabel: _elapsedLabel,
+                elapsed: _elapsed,
                 hasanatLabel: _formatCompactHasanat(_sessionHasanat),
               ),
               Expanded(
@@ -353,10 +392,18 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
                     PageView.builder(
                       controller: _pageController,
                       itemCount: _pageCount,
+                      pageSnapping: false,
+                      physics: const QuickPageScrollPhysics(),
                       onPageChanged: _onPageChanged,
-                      itemBuilder: (context, index) => _AyahPage(
-                        ayah: _contentAt(index),
-                        bismillahText: _showsBismillah(index) ? _bismillahText : null,
+                      // Each ayah's Arabic text is expensive to lay out, and
+                      // the neighbouring pages are alive during a swipe -
+                      // isolating them keeps a repaint on one page from
+                      // re-rasterising the others.
+                      itemBuilder: (context, index) => RepaintBoundary(
+                        child: _AyahPage(
+                          ayah: _contentAt(index),
+                          bismillahText: _showsBismillah(index) ? _bismillahText : null,
+                        ),
                       ),
                     ),
                     // Tap zones over the outer edges only, so the centered
@@ -444,13 +491,13 @@ String _formatCompactHasanat(int n) {
 class _JuzProgressHeader extends StatelessWidget {
   final JuzProgress progress;
   final int sessionAyahCount;
-  final String elapsedLabel;
+  final ValueListenable<Duration> elapsed;
   final String hasanatLabel;
 
   const _JuzProgressHeader({
     required this.progress,
     required this.sessionAyahCount,
-    required this.elapsedLabel,
+    required this.elapsed,
     required this.hasanatLabel,
   });
 
@@ -471,11 +518,26 @@ class _JuzProgressHeader extends StatelessWidget {
                   style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant),
                 ),
               ),
-              _StatChip(icon: Icons.auto_awesome_rounded, label: hasanatLabel),
+              _StatChip(
+                icon: Icons.auto_awesome_rounded,
+                label: hasanatLabel,
+                tooltip: 'Hasanat: the reward for reciting the Quran - 10 for every Arabic letter, earned this session.',
+              ),
               const SizedBox(width: 10),
-              _StatChip(icon: Icons.menu_book_rounded, label: '$sessionAyahCount'),
+              _StatChip(
+                icon: Icons.menu_book_rounded,
+                label: '$sessionAyahCount',
+                tooltip: 'Verses read this session.',
+              ),
               const SizedBox(width: 10),
-              _StatChip(icon: Icons.timer_outlined, label: elapsedLabel),
+              ValueListenableBuilder<Duration>(
+                valueListenable: elapsed,
+                builder: (context, value, _) => _StatChip(
+                  icon: Icons.timer_outlined,
+                  label: _ReadingScreenState._formatElapsed(value),
+                  tooltip: 'Time spent reading this session.',
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -497,19 +559,31 @@ class _JuzProgressHeader extends StatelessWidget {
 class _StatChip extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String tooltip;
 
-  const _StatChip({required this.icon, required this.label});
+  const _StatChip({required this.icon, required this.label, required this.tooltip});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
-        const SizedBox(width: 3),
-        Text(label, style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
-      ],
+    return Tooltip(
+      message: tooltip,
+      triggerMode: TooltipTriggerMode.tap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            // Tabular figures give every digit the same advance width, so a
+            // chip's width - and everything to its right in the row - stays
+            // put as the number inside it changes. Without this the ticking
+            // timer chip visibly shifted the whole row every second.
+            style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant, fontFeatures: const [FontFeature.tabularFigures()]),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -548,6 +622,7 @@ class _AyahPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final appState = context.watch<AppState>();
     final useSimple = appState.useSimpleTranslation;
+    final fontScale = appState.fontScale;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -562,7 +637,12 @@ class _AyahPage extends StatelessWidget {
                   if (bismillahText != null) ...[
                     _ArabicText(
                       text: bismillahText!,
-                      style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 27, height: 2.1, color: colorScheme.onSurfaceVariant),
+                      style: TextStyle(
+                        fontFamily: appState.quranScript.fontFamily,
+                        fontSize: 27 * fontScale,
+                        height: 2.1,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -576,35 +656,54 @@ class _AyahPage extends StatelessWidget {
                     alignment: Alignment.center,
                     child: _ArabicText(
                       text: ayah.arabicText,
-                      style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 42, height: 2.2),
+                      style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 42 * fontScale, height: 2.2),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: colorScheme.outlineVariant, width: 1),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      useSimple ? ayah.simpleEnglishText : ayah.englishText,
+                  if (appState.showTransliteration) ...[
+                    const SizedBox(height: 14),
+                    // Plain text, not another bordered card - it's a
+                    // pronunciation aid riding along with the Arabic above
+                    // it, not a third independent block competing for
+                    // attention the way the translation panel does.
+                    Text(
+                      ayah.transliterationText,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16, height: 1.6),
+                      style: TextStyle(
+                        fontSize: 14 * fontScale,
+                        height: 1.5,
+                        fontStyle: FontStyle.italic,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: colorScheme.onSurfaceVariant,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      minimumSize: const Size(0, 32),
+                  ],
+                  if (appState.showTranslation) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        useSimple ? ayah.simpleEnglishText : ayah.englishText,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16 * fontScale, height: 1.6),
+                      ),
                     ),
-                    onPressed: () => appState.setUseSimpleTranslation(!useSimple),
-                    child: Text(useSimple ? 'Show original translation' : "I don't understand"),
-                  ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.onSurfaceVariant,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      onPressed: () => appState.setUseSimpleTranslation(!useSimple),
+                      child: Text(useSimple ? 'Show original translation' : "I don't understand"),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -683,6 +782,140 @@ class _NavigationBar extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Lets the reader adjust text size, switch the Arabic script, and hide the
+/// translation panel, all without leaving the ayah they're on - the same
+/// three settings live permanently in Settings, but jumping out of the
+/// reading flow to change them mid-session is exactly the friction this
+/// sheet avoids.
+class _DisplaySettingsSheet extends StatefulWidget {
+  const _DisplaySettingsSheet();
+
+  @override
+  State<_DisplaySettingsSheet> createState() => _DisplaySettingsSheetState();
+}
+
+class _DisplaySettingsSheetState extends State<_DisplaySettingsSheet> {
+  static const _minScale = 0.8;
+  static const _maxScale = 1.6;
+
+  // Local so the slider tracks the finger smoothly; only committed to
+  // AppState (and therefore Hive) on release, not on every drag tick.
+  late double _fontScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _fontScale = context.read<AppState>().fontScale;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Display', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+          const SizedBox(height: 20),
+          Text(
+            'TEXT SIZE',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
+          ),
+          Slider(
+            value: _fontScale,
+            min: _minScale,
+            max: _maxScale,
+            divisions: 8,
+            label: '${(_fontScale * 100).round()}%',
+            onChanged: (value) => setState(() => _fontScale = value),
+            onChangeEnd: (value) => appState.setFontScale(value),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'SCRIPT',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 10),
+          for (final script in QuranScript.values) ...[
+            _CompactScriptOption(
+              script: script,
+              selected: appState.quranScript == script,
+              onTap: () => appState.setScript(script),
+            ),
+            const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Show translation',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+                ),
+              ),
+              Switch(value: appState.showTranslation, onChanged: appState.setShowTranslation),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Show transliteration',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+                ),
+              ),
+              Switch(value: appState.showTransliteration, onChanged: appState.setShowTransliteration),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactScriptOption extends StatelessWidget {
+  final QuranScript script;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CompactScriptOption({required this.script, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
+          ),
+          child: Row(
+            children: [
+              Expanded(child: Text(script.displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+              Icon(
+                selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

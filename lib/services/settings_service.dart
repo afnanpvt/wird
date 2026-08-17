@@ -47,4 +47,16 @@ class SettingsService {
   bool getHasSeenCoachTour() => _box.get('hasSeenCoachTour') as bool? ?? false;
 
   Future<void> saveHasSeenCoachTour() => _box.put('hasSeenCoachTour', true);
+
+  double getFontScale() => _box.get('fontScale') as double? ?? 1.0;
+
+  Future<void> saveFontScale(double scale) => _box.put('fontScale', scale);
+
+  bool getShowTranslation() => _box.get('showTranslation') as bool? ?? true;
+
+  Future<void> saveShowTranslation(bool value) => _box.put('showTranslation', value);
+
+  bool getShowTransliteration() => _box.get('showTransliteration') as bool? ?? false;
+
+  Future<void> saveShowTransliteration(bool value) => _box.put('showTransliteration', value);
 }

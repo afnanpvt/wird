@@ -26,13 +26,15 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.3.1
+## what's new in 1.3.3
 
 - **corrected the indo-pak arabic text.** the tajweed marks that guide pronunciation, including the iqlab (the small meem written over a nun before a ba), are now all present and verified against the king fahd complex mushaf. if you recite from this app, this one matters.
 - stats you can swipe through - today, this week, or all time, each showing ayahs read and time spent reading
 - a friday suggestion to read surah al-kahf, in place of the verse of the day
 - a warmer, randomized greeting each time you open the app
-- a reworded "save as continue reading" prompt, and a handful of small polish fixes throughout
+- a reworded "save as continue reading" prompt
+- a first open that actually looks like a first open: "start reading" instead of a "continue reading" that implied progress you hadn't made yet
+- the first-run tour now scrolls to whatever it's pointing at, instead of leaving you looking at a highlight for something off the bottom of your screen
 
 ## what it actually does
 

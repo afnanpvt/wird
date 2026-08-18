@@ -18,7 +18,7 @@ if this feels inspired by the gamified habit apps you already know, it is. i jus
 
 ## get it
 
-**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.4.0.apk)**
+**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.5.0.apk)**
 tap it, it downloads right away, no page in between.
 
 **or, for auto-updates: f-droid**
@@ -26,24 +26,19 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.4.0
+## what's new in 1.5.0
 
-a big one, most of it built by [alhaan](https://github.com/alhaan313), this project's first outside contributor:
+- **recitation audio.** tap play on any ayah to hear it, mishary alafasy, streamed only when you tap it. the one thing in this app that touches the network, and only that.
+- fixed the session timer opening already showing hours of your all-time total instead of counting up from zero
+- fixed the streak calendar's "days read" line bobbing between months
+- the end-of-session summary now matches the home screen's stat styling, and stays quiet on a visit where you didn't actually read anything
 
-- **bookmarks.** name and save as many spots as you want, not just one continue-reading pointer. mark any of them as your home screen default; the rest just sit there until you explicitly resave them.
-- **save a verse.** tap the heart on any ayah, find it again later under browse's saved tab.
-- **hasanat.** a running tally of the reward for reciting, counted letter by letter the traditional way (ten hasanat per letter), checked against the classical count of the bismillah's 19 letters.
-- a real streak calendar: a sun-to-sat strip on the home screen, and a full month view behind it.
-- transliteration, off by default, toggled from a new display settings sheet on the reading screen, alongside a text-size slider and a quick script switch.
-- search in browse, across surah, juz, and your saved verses.
-- tap either edge of the reading screen to move between ayahs, not just swipe.
-- smoother scrolling everywhere, and a proper splash screen instead of a black-and-white flash on launch.
-
-and from the last few releases: corrected tajweed marks in the indo-pak text (verified against the king fahd complex mushaf - matters if you recite from this app), swipeable today/week/all-time stats, a friday suggestion to read surah al-kahf, and a first-run experience that doesn't imply progress you haven't made yet.
+and from 1.4.0, most of it built by [alhaan](https://github.com/alhaan313), this project's first outside contributor: named bookmarks, saving a verse with a tap, hasanat tracking, a real streak calendar, optional transliteration, and search in browse. plus corrected tajweed marks in the indo-pak text from the release before that, verified against the king fahd complex mushaf, matters if you recite from this app.
 
 ## what it actually does
 
 - reads the quran in three different scripts, indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed color-coding, switchable anytime, each paired with a properly-sourced font and text so the actual letterforms and marks render correctly, not just "close enough"
+- tap play on any ayah to hear it recited (mishary alafasy), streamed on demand
 - arabic text alongside two english translations (saheeh international, and the clear quran for when the literal translation isn't clicking), plus an optional transliteration line
 - as many named bookmarks as you want, one of them set as your home screen default, the rest just sitting there until you resave them
 - save any verse with a tap, find it again later under browse's saved tab
@@ -64,6 +59,8 @@ and from the last few releases: corrected tajweed marks in the indo-pak text (ve
 everything wird tracks, your streak, your progress, your reading position, lives in local storage on your device and nowhere else. no account, no login, no server, no cloud sync. i'm not interested in your data and i built it so i couldn't have it even if i wanted to.
 
 that also means: if you uninstall the app, it's gone. there's no cloud backup to restore from. that's the tradeoff for genuinely not collecting anything.
+
+one honest exception as of 1.5.0: tapping play on an ayah streams that verse's recitation from everyayah.com. that's a request for public audio, not anything about you, and it only happens when you tap play, nothing loads or calls out on its own. it's also the only thing in this app that needs internet access at all.
 
 ## contributing
 

@@ -228,27 +228,37 @@ class _MonthGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final week in weeks) ...[
-          Row(
-            children: List.generate(7, (i) {
-              final cell = week[i];
-              final leftNeighbor = i > 0 ? week[i - 1] : null;
-              final rightNeighbor = i < 6 ? week[i + 1] : null;
-              final joinsLeft = cell != null && cell.wasRead && leftNeighbor != null && leftNeighbor.wasRead;
-              final joinsRight = cell != null && cell.wasRead && rightNeighbor != null && rightNeighbor.wasRead;
+          // A Row with no explicit height of its own sizes to its tallest
+          // child - so a trailing week that's entirely SizedBox.shrink()
+          // (no real day lands in any of its 7 slots, which happens for
+          // every month needing fewer than 6 rows) collapsed to 0px instead
+          // of reserving a row's worth of space. That's what let the footer
+          // text bob up and down between months. Pinning the row's own
+          // height keeps it reserved regardless of what's inside it.
+          SizedBox(
+            height: rowHeight,
+            child: Row(
+              children: List.generate(7, (i) {
+                final cell = week[i];
+                final leftNeighbor = i > 0 ? week[i - 1] : null;
+                final rightNeighbor = i < 6 ? week[i + 1] : null;
+                final joinsLeft = cell != null && cell.wasRead && leftNeighbor != null && leftNeighbor.wasRead;
+                final joinsRight = cell != null && cell.wasRead && rightNeighbor != null && rightNeighbor.wasRead;
 
-              return Expanded(
-                child: cell == null
-                    ? const SizedBox.shrink()
-                    : _DayCell(
-                        day: cell.day,
-                        filled: cell.wasRead,
-                        isToday: cell.isToday,
-                        isFuture: cell.isFuture,
-                        joinsLeft: joinsLeft,
-                        joinsRight: joinsRight,
-                      ),
-              );
-            }),
+                return Expanded(
+                  child: cell == null
+                      ? const SizedBox.shrink()
+                      : _DayCell(
+                          day: cell.day,
+                          filled: cell.wasRead,
+                          isToday: cell.isToday,
+                          isFuture: cell.isFuture,
+                          joinsLeft: joinsLeft,
+                          joinsRight: joinsRight,
+                        ),
+                );
+              }),
+            ),
           ),
           const SizedBox(height: rowSpacing),
         ],

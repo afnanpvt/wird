@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
 import '../main.dart';
@@ -12,8 +13,28 @@ import '../models/bookmark.dart';
 import '../models/juz_progress.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
+import '../services/verse_audio.dart';
 import '../widgets/completion_dialog.dart';
 import '../widgets/quick_page_physics.dart';
+
+enum _AudioStatus { idle, loading, playing, error }
+
+/// Which ayah (if any) the screen's single [AudioPlayer] is currently
+/// loading/playing/erroring on, and what state it's in. Only one verse can
+/// play at a time - matches the confirmed design (tap plays that one verse,
+/// no auto-continue), and mirrors how a reader physically swipes one verse
+/// at a time already.
+class _AudioState {
+  final int? surahNumber;
+  final int? ayahNumber;
+  final _AudioStatus status;
+
+  const _AudioState({this.surahNumber, this.ayahNumber, this.status = _AudioStatus.idle});
+
+  bool isFor(Ayah ayah) => surahNumber == ayah.surahNumber && ayahNumber == ayah.ayahNumber;
+
+  static const idle = _AudioState();
+}
 
 /// Surahs that traditionally omit the opening Bismillah (only At-Tawbah).
 const _surahsWithoutBismillah = {9};
@@ -85,6 +106,10 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   int _unflushedSeconds = 0;
   late final AppState _appState;
 
+  late final AudioPlayer _audioPlayer;
+  StreamSubscription<PlayerState>? _audioStateSubscription;
+  final ValueNotifier<_AudioState> _audioState = ValueNotifier(_AudioState.idle);
+
   int get _pageCount => _ayahs.length;
   bool get _isTracking => _trackingBookmarkId != null;
 
@@ -103,13 +128,45 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _pageController = PageController(initialPage: _currentIndex);
     _trackingBookmarkId =
         widget.trackingBookmarkId ?? (widget.updatesContinuePoint ? appState.defaultBookmark.id : null);
-    _sessionAyahCount = 1;
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
     _lastJuzNumber = quran.juzProgressFor(widget.initialSurahNumber, widget.initialAyahNumber).juzNumber;
-    _elapsed.value = Duration(seconds: context.read<AppState>().totalReadingSeconds);
-    _recordPage(_currentIndex);
+    // _elapsed already defaults to Duration.zero at field declaration - a
+    // fresh session's timer chip starts at 0:00, not at the app's lifetime
+    // total. It was previously seeded from appState.totalReadingSeconds,
+    // which is why the chip opened already showing hours/days of
+    // accumulated time instead of counting up from the start of this visit.
+    // Only moves the bookmark to where this session opened - does NOT
+    // credit the opening ayah as read. That happens in _onPageChanged, once
+    // the reader has actually paged past it.
+    _updateBookmarkPosition(_currentIndex);
     context.read<AppState>().recordSessionStarted();
     _startTicker();
+
+    _audioPlayer = AudioPlayer();
+    // just_audio's play() future resolves when playback ENDS, not when it
+    // starts - awaiting it to decide "now playing" left the button stuck
+    // showing its loading spinner for the whole verse, then flipping to
+    // "playing" right as this same stream was setting it back to idle. The
+    // player's own state stream is the only reliable source for "is it
+    // actually audible right now".
+    _audioStateSubscription = _audioPlayer.playerStateStream.listen((state) {
+      final current = _audioState.value;
+      // Nothing of ours is loaded/playing - a stray event from a source
+      // that's already been superseded. Pause/stop from our own toggle or
+      // a page change already set _audioState directly.
+      if (current.status == _AudioStatus.idle || current.status == _AudioStatus.error) return;
+
+      if (state.processingState == ProcessingState.completed) {
+        _audioState.value = _AudioState.idle;
+      } else if (state.playing && current.status != _AudioStatus.playing) {
+        // Not gated on processingState == ready: for a verse-length clip
+        // the loading/buffering phase is already covered by the "loading"
+        // status set synchronously before play() is even called, so as soon
+        // as play() flips the player's own playing flag, this is the
+        // earliest honest "started" signal available.
+        _audioState.value = _AudioState(surahNumber: current.surahNumber, ayahNumber: current.ayahNumber, status: _AudioStatus.playing);
+      }
+    });
   }
 
   @override
@@ -127,15 +184,22 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _pageController.dispose();
     _confettiController.dispose();
     _elapsed.dispose();
+    _audioStateSubscription?.cancel();
+    _audioPlayer.dispose();
+    _audioState.dispose();
     super.dispose();
   }
 
   /// Another route (e.g. the next surah's reading screen) was pushed on top
   /// of this one. This screen is still alive underneath for back-navigation,
   /// so its ticker must stop or it'd double-count reading time alongside
-  /// the new screen's own ticker.
+  /// the new screen's own ticker. Audio has to stop too, or the previous
+  /// surah's recitation would keep playing behind the new screen.
   @override
-  void didPushNext() => _stopTicker();
+  void didPushNext() {
+    _stopTicker();
+    _stopAudio();
+  }
 
   @override
   void didPopNext() => _startTicker();
@@ -180,12 +244,13 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     );
   }
 
-  Future<void> _showJumpToAyahSheet() async {
+  Future<void> _showReadingOptionsSheet() async {
     final currentAyah = _ayahNumberForDisplay(_currentIndex).clamp(1, _ayahs.length);
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => _JumpToAyahSheet(
+      isScrollControlled: true,
+      builder: (sheetContext) => _ReadingOptionsSheet(
         totalAyahs: _ayahs.length,
         initialAyah: currentAyah,
         onGo: (ayahNumber) {
@@ -196,22 +261,70 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     );
   }
 
-  void _recordPage(int index) {
+  /// Moves the tracked bookmark to wherever the reader currently is - this
+  /// is just "where to resume from", not a claim they've read this ayah, so
+  /// it runs on arrival at every ayah including the very first one.
+  void _updateBookmarkPosition(int index) {
+    if (_trackingBookmarkId == null) return;
+    final content = _contentAt(index);
+    context.read<AppState>().updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
+  }
+
+  /// Credits an ayah as read - streak, hasanat, the lot. Only called once
+  /// the reader has paged past it (see [_onPageChanged]), never for the
+  /// ayah merely on screen: opening straight to an ayah and immediately
+  /// backing out or hitting "I'm done" without ever paging is not reading
+  /// it, and shouldn't be counted as if it were.
+  void _creditAyahRead(int index) {
     final content = _contentAt(index);
     final appState = context.read<AppState>();
     appState.recordAyahRead(content.surahNumber, content.ayahNumber);
     _sessionHasanat += appState.quran.hasanatForAyah(content.surahNumber, content.ayahNumber);
-    if (_trackingBookmarkId != null) {
-      appState.updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
-    }
   }
 
-  Future<void> _showDisplaySettingsSheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => const _DisplaySettingsSheet(),
-    );
+  /// Bumped on every stop/new-play request. A [_toggleVerseAudio] call
+  /// checks this after each await and bails if it's been superseded -
+  /// without that, a rapid double-tap (or a page change landing mid-load)
+  /// could let a stale request call play() on the shared player *after* a
+  /// newer stop() already ran, restarting audio that was just cancelled.
+  int _audioRequestId = 0;
+
+  void _stopAudio() {
+    _audioRequestId++;
+    if (_audioState.value.status == _AudioStatus.idle) return;
+    _audioPlayer.stop();
+    _audioState.value = _AudioState.idle;
+  }
+
+  /// Tapping the verse that's currently loading or playing stops it -
+  /// there's no pause/resume, just play-this-one-verse-or-don't, matching
+  /// the confirmed scope (single verse, no auto-continue). Tapping any other
+  /// verse stops whatever was playing and starts the new one from the top.
+  Future<void> _toggleVerseAudio(Ayah ayah) async {
+    final current = _audioState.value;
+    if (current.isFor(ayah) && current.status != _AudioStatus.error) {
+      _stopAudio();
+      return;
+    }
+
+    final requestId = ++_audioRequestId;
+    _audioState.value = _AudioState(surahNumber: ayah.surahNumber, ayahNumber: ayah.ayahNumber, status: _AudioStatus.loading);
+    try {
+      await _audioPlayer.setUrl(verseAudioUrl(ayah.surahNumber, ayah.ayahNumber));
+      if (requestId != _audioRequestId) return;
+      // Not awaited for state purposes - play()'s future only resolves once
+      // playback ENDS, not when it starts. The stream listener above is
+      // what flips this to "playing"; this await just exists so a failure
+      // partway through (a dropped connection mid-stream, say) still lands
+      // in the catch block below instead of becoming an unhandled rejection.
+      await _audioPlayer.play();
+    } catch (_) {
+      if (requestId != _audioRequestId || !mounted) return;
+      _audioState.value = _AudioState(surahNumber: ayah.surahNumber, ayahNumber: ayah.ayahNumber, status: _AudioStatus.error);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't play audio - check your connection")),
+      );
+    }
   }
 
   Future<void> _showSaveBookmarkSheet() async {
@@ -240,6 +353,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     // never counted while the app isn't actually in front of the user.
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       _stopTicker();
+      _stopAudio();
       if (_trackingBookmarkId != null) {
         final content = _contentAt(_currentIndex);
         context.read<AppState>().updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
@@ -252,9 +366,17 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   }
 
   void _onPageChanged(int index) {
+    // Paging away from an ayah - forward or back - is what demonstrates the
+    // reader actually moved through it, so that's the one that gets credit
+    // here, not the one just arrived at.
+    final leftIndex = _currentIndex;
     setState(() => _currentIndex = index);
     _sessionAyahCount++;
-    _recordPage(index);
+    _creditAyahRead(leftIndex);
+    _updateBookmarkPosition(index);
+    // Single-verse playback only (no auto-continue) - moving to a different
+    // ayah, however that happens, ends whatever was playing.
+    _stopAudio();
     final content = _contentAt(index);
     final juzNumber = context.read<AppState>().quran.juzProgressFor(content.surahNumber, content.ayahNumber).juzNumber;
     if (juzNumber > _lastJuzNumber) {
@@ -315,6 +437,14 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   }
 
   Future<void> _finishReading() async {
+    // Nothing was actually read this visit (opened and left without ever
+    // paging past an ayah) - a "here's what you read" summary would be
+    // reporting on a session that didn't happen, even though the numbers
+    // inside it (today's running total, etc.) are individually accurate.
+    if (_sessionAyahCount == 0) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
     final appState = context.read<AppState>();
     await showCompletionDialog(
       context,
@@ -364,15 +494,33 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
               icon: const Icon(Icons.bookmark_add_outlined),
               onPressed: _showSaveBookmarkSheet,
             ),
-          IconButton(
-            tooltip: 'Jump to ayah',
-            icon: const Icon(Icons.format_list_numbered_rounded),
-            onPressed: _showJumpToAyahSheet,
+          // Lives in the toolbar rather than overlaid on the ayah itself -
+          // that placement collided with the left/right edge tap zones (see
+          // the PageView's edge GestureDetectors below) and looked wrong
+          // sitting on top of the Arabic text for short verses.
+          ValueListenableBuilder<_AudioState>(
+            valueListenable: _audioState,
+            builder: (context, state, _) {
+              final isCurrent = state.isFor(content);
+              final isPlaying = isCurrent && state.status == _AudioStatus.playing;
+              final isLoading = isCurrent && state.status == _AudioStatus.loading;
+              return IconButton(
+                tooltip: isPlaying ? 'Stop recitation' : 'Play recitation',
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_outline_rounded),
+                onPressed: () => _toggleVerseAudio(content),
+              );
+            },
           ),
           IconButton(
-            tooltip: 'Display settings',
-            icon: const Icon(Icons.text_fields_rounded),
-            onPressed: _showDisplaySettingsSheet,
+            tooltip: 'Reading options',
+            icon: const Icon(Icons.tune_rounded),
+            onPressed: _showReadingOptionsSheet,
           ),
         ],
       ),
@@ -787,21 +935,32 @@ class _NavigationBar extends StatelessWidget {
   }
 }
 
-/// Lets the reader adjust text size, switch the Arabic script, and hide the
-/// translation panel, all without leaving the ayah they're on - the same
-/// three settings live permanently in Settings, but jumping out of the
-/// reading flow to change them mid-session is exactly the friction this
-/// sheet avoids.
-class _DisplaySettingsSheet extends StatefulWidget {
-  const _DisplaySettingsSheet();
+/// One combined sheet for everything that isn't a persistent setting:
+/// jumping to a specific ayah, and the same display prefs (text size,
+/// script, translation/transliteration visibility) that also live
+/// permanently in Settings. These used to be two separate toolbar icons;
+/// merged into one so the toolbar has room for the play-recitation button
+/// without getting crowded.
+class _ReadingOptionsSheet extends StatefulWidget {
+  final int totalAyahs;
+  final int initialAyah;
+  final ValueChanged<int> onGo;
+
+  const _ReadingOptionsSheet({
+    required this.totalAyahs,
+    required this.initialAyah,
+    required this.onGo,
+  });
 
   @override
-  State<_DisplaySettingsSheet> createState() => _DisplaySettingsSheetState();
+  State<_ReadingOptionsSheet> createState() => _ReadingOptionsSheetState();
 }
 
-class _DisplaySettingsSheetState extends State<_DisplaySettingsSheet> {
+class _ReadingOptionsSheetState extends State<_ReadingOptionsSheet> {
   static const _minScale = 0.8;
   static const _maxScale = 1.6;
+
+  late int _selectedAyah;
 
   // Local so the slider tracks the finger smoothly; only committed to
   // AppState (and therefore Hive) on release, not on every drag tick.
@@ -810,6 +969,7 @@ class _DisplaySettingsSheetState extends State<_DisplaySettingsSheet> {
   @override
   void initState() {
     super.initState();
+    _selectedAyah = widget.initialAyah;
     _fontScale = context.read<AppState>().fontScale;
   }
 
@@ -817,67 +977,109 @@ class _DisplaySettingsSheetState extends State<_DisplaySettingsSheet> {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final colorScheme = Theme.of(context).colorScheme;
+    final sectionLabelStyle = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.6,
+      color: colorScheme.onSurfaceVariant,
+    );
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Display', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-          const SizedBox(height: 20),
-          Text(
-            'TEXT SIZE',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
-          ),
-          Slider(
-            value: _fontScale,
-            min: _minScale,
-            max: _maxScale,
-            divisions: 8,
-            label: '${(_fontScale * 100).round()}%',
-            onChanged: (value) => setState(() => _fontScale = value),
-            onChangeEnd: (value) => appState.setFontScale(value),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'SCRIPT',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 10),
-          for (final script in QuranScript.values) ...[
-            _CompactScriptOption(
-              script: script,
-              selected: appState.quranScript == script,
-              onTap: () => appState.setScript(script),
+    // isScrollControlled on the showModalBottomSheet call lets this size to
+    // content instead of the default half-screen cap, but jump-to-ayah plus
+    // all four display settings together can still be taller than a small
+    // phone's screen (more so with a larger system text size) - this second
+    // layer scrolls internally as a backstop rather than overflowing.
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Reading options',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+            ),
+            const SizedBox(height: 20),
+            Text('JUMP TO AYAH', style: sectionLabelStyle),
+            const SizedBox(height: 2),
+            Text(
+              'Ayah $_selectedAyah of ${widget.totalAyahs}',
+              style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+            ),
+            Slider(
+              value: _selectedAyah.toDouble(),
+              min: 1,
+              max: widget.totalAyahs.toDouble(),
+              divisions: widget.totalAyahs > 1 ? widget.totalAyahs - 1 : null,
+              label: '$_selectedAyah',
+              onChanged: (value) => setState(() => _selectedAyah = value.round()),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: colorScheme.onSurface,
+                  foregroundColor: colorScheme.surface,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                onPressed: () => widget.onGo(_selectedAyah),
+                child: const Text('Go'),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Divider(color: colorScheme.outlineVariant),
+            const SizedBox(height: 16),
+            Text('TEXT SIZE', style: sectionLabelStyle),
+            Slider(
+              value: _fontScale,
+              min: _minScale,
+              max: _maxScale,
+              divisions: 8,
+              label: '${(_fontScale * 100).round()}%',
+              onChanged: (value) => setState(() => _fontScale = value),
+              onChangeEnd: (value) => appState.setFontScale(value),
             ),
             const SizedBox(height: 8),
+            Text('SCRIPT', style: sectionLabelStyle),
+            const SizedBox(height: 10),
+            for (final script in QuranScript.values) ...[
+              _CompactScriptOption(
+                script: script,
+                selected: appState.quranScript == script,
+                onTap: () => appState.setScript(script),
+              ),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Show translation',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+                  ),
+                ),
+                Switch(value: appState.showTranslation, onChanged: appState.setShowTranslation),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Show transliteration',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+                  ),
+                ),
+                Switch(value: appState.showTransliteration, onChanged: appState.setShowTransliteration),
+              ],
+            ),
           ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Show translation',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
-                ),
-              ),
-              Switch(value: appState.showTranslation, onChanged: appState.setShowTranslation),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Show transliteration',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
-                ),
-              ),
-              Switch(value: appState.showTransliteration, onChanged: appState.setShowTransliteration),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -916,76 +1118,6 @@ class _CompactScriptOption extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _JumpToAyahSheet extends StatefulWidget {
-  final int totalAyahs;
-  final int initialAyah;
-  final ValueChanged<int> onGo;
-
-  const _JumpToAyahSheet({
-    required this.totalAyahs,
-    required this.initialAyah,
-    required this.onGo,
-  });
-
-  @override
-  State<_JumpToAyahSheet> createState() => _JumpToAyahSheetState();
-}
-
-class _JumpToAyahSheetState extends State<_JumpToAyahSheet> {
-  late int _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = widget.initialAyah;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Jump to ayah',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Ayah $_selected of ${widget.totalAyahs}',
-            style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
-          ),
-          Slider(
-            value: _selected.toDouble(),
-            min: 1,
-            max: widget.totalAyahs.toDouble(),
-            divisions: widget.totalAyahs > 1 ? widget.totalAyahs - 1 : null,
-            label: '$_selected',
-            onChanged: (value) => setState(() => _selected = value.round()),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: colorScheme.onSurface,
-                foregroundColor: colorScheme.surface,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              ),
-              onPressed: () => widget.onGo(_selected),
-              child: const Text('Go'),
-            ),
-          ),
-        ],
       ),
     );
   }

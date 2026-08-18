@@ -33,6 +33,12 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+    <!-- Every previous release build had no network access at all - the Quran
+         text/translations/hasanat data are all bundled assets, nothing else
+         calls out. This is the one exception: streaming a tapped ayah's
+         recitation audio from everyayah.com (see lib/services/verse_audio.dart).
+         Nothing is fetched unless the reader explicitly taps play. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.

@@ -18,7 +18,7 @@ if this feels inspired by the gamified habit apps you already know, it is. i jus
 
 ## get it
 
-**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.3.3.apk)**
+**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.4.0.apk)**
 tap it, it downloads right away, no page in between.
 
 **or, for auto-updates: f-droid**
@@ -26,23 +26,32 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.3.3
+## what's new in 1.4.0
 
-- **corrected the indo-pak arabic text.** the tajweed marks that guide pronunciation, including the iqlab (the small meem written over a nun before a ba), are now all present and verified against the king fahd complex mushaf. if you recite from this app, this one matters.
-- stats you can swipe through - today, this week, or all time, each showing ayahs read and time spent reading
-- a friday suggestion to read surah al-kahf, in place of the verse of the day
-- a warmer, randomized greeting each time you open the app
-- a reworded "save as continue reading" prompt
-- a first open that actually looks like a first open: "start reading" instead of a "continue reading" that implied progress you hadn't made yet
-- the first-run tour now scrolls to whatever it's pointing at, instead of leaving you looking at a highlight for something off the bottom of your screen
+a big one, most of it built by [alhaan](https://github.com/alhaan313), this project's first outside contributor:
+
+- **bookmarks.** name and save as many spots as you want, not just one continue-reading pointer. mark any of them as your home screen default; the rest just sit there until you explicitly resave them.
+- **save a verse.** tap the heart on any ayah, find it again later under browse's saved tab.
+- **hasanat.** a running tally of the reward for reciting, counted letter by letter the traditional way (ten hasanat per letter), checked against the classical count of the bismillah's 19 letters.
+- a real streak calendar: a sun-to-sat strip on the home screen, and a full month view behind it.
+- transliteration, off by default, toggled from a new display settings sheet on the reading screen, alongside a text-size slider and a quick script switch.
+- search in browse, across surah, juz, and your saved verses.
+- tap either edge of the reading screen to move between ayahs, not just swipe.
+- smoother scrolling everywhere, and a proper splash screen instead of a black-and-white flash on launch.
+
+and from the last few releases: corrected tajweed marks in the indo-pak text (verified against the king fahd complex mushaf - matters if you recite from this app), swipeable today/week/all-time stats, a friday suggestion to read surah al-kahf, and a first-run experience that doesn't imply progress you haven't made yet.
 
 ## what it actually does
 
 - reads the quran in three different scripts, indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed color-coding, switchable anytime, each paired with a properly-sourced font and text so the actual letterforms and marks render correctly, not just "close enough"
-- arabic text alongside two english translations (saheeh international, and the clear quran for when the literal translation isn't clicking)
-- tracks a daily streak with a grace day built in, because missing one day shouldn't erase everything you built
+- arabic text alongside two english translations (saheeh international, and the clear quran for when the literal translation isn't clicking), plus an optional transliteration line
+- as many named bookmarks as you want, one of them set as your home screen default, the rest just sitting there until you resave them
+- save any verse with a tap, find it again later under browse's saved tab
+- hasanat: a running total of the reward for reciting, counted the traditional way (ten per letter)
+- tracks a daily streak with a grace day built in, because missing one day shouldn't erase everything you built, shown as a real calendar you can page through, not just a number
 - honest stats only, swipeable by today/this week/all time: ayahs read, time spent reading, best streak. no invented "% of quran read" number, because the app genuinely doesn't know your reading history from before you installed it, and pretending otherwise felt dishonest
 - suggests surah al-kahf on fridays, in place of the verse of the day, without touching your saved progress
+- search across surah, juz, and your saved verses from browse
 - a short first-time setup: your name (optional), pick a script, that's it, no accounts
 - a quiet first-run tour pointing at the three things worth knowing, shown once
 - a small celebration when you finish a surah or a juz, nothing that gets in the way of actually reading

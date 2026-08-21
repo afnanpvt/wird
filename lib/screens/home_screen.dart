@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,12 +7,8 @@ import 'package:provider/provider.dart';
 import '../models/ayah.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
-import '../widgets/coach_tour.dart';
-import 'bookmarks_screen.dart';
 import 'reading_screen.dart';
-import 'settings_screen.dart';
 import 'streak_calendar_screen.dart';
-import 'browse_screen.dart';
 
 String _formatDuration(int totalSeconds) {
   final hours = totalSeconds ~/ 3600;
@@ -31,61 +28,51 @@ String _formatCompactCount(int n) {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  /// Supplied by [RootScreen] so its coach tour can point at this card even
+  /// though it lives one level down, inside this tab's own content.
+  final GlobalKey continueReadingKey;
+
+  const HomeScreen({super.key, required this.continueReadingKey});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _settingsKey = GlobalKey();
-  final _continueReadingKey = GlobalKey();
-  final _browseKey = GlobalKey();
-
+  // The old pool was four English phrasings of the exact same salutation
+  // ("Assalamu alaikum" / "As-salamu alaykum" / "Peace be upon you" /
+  // "Salaam" all say the same thing), so it never actually felt varied - it
+  // was one greeting rotating through synonyms. This one keeps the Islamic
+  // greeting itself (dropping only its repeated re-phrasings), and adds
+  // genuinely different sentiments built around feeling at home here, not
+  // just being greeted. "Ahlan wa sahlan" is doing real work, not decoration:
+  // it's the Arabic word for "welcome" built from "ahl" (family/people) and
+  // "sahl" (easy, level ground) - literally "you've arrived among family, on
+  // easy ground," which is closer to what this screen is actually trying to
+  // say than a translated salutation is.
+  //
   // Randomized once per app open rather than per rebuild, so it doesn't
   // change every time something else on the screen triggers a rebuild.
-  static const _islamicGreetings = [
+  static const _greetings = [
     'Assalamu alaikum',
-    'As-salamu alaykum',
-    'Peace be upon you',
-    'Salaam',
+    'Ahlan wa sahlan',
+    'Welcome back',
+    'Good to have you back',
+    "You're home",
   ];
-  late final String _islamicGreeting;
+  late final String _greetingPhrase;
 
   // The streak number is already the loud, visible thing right below this -
   // no need for a second congratulatory line repeating it in words.
   String _greeting(String? name) {
     final who = name == null || name.isEmpty ? '' : ', $name';
-    return '$_islamicGreeting$who';
+    return '$_greetingPhrase$who';
   }
 
   @override
   void initState() {
     super.initState();
-    _islamicGreeting = _islamicGreetings[Random().nextInt(_islamicGreetings.length)];
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final appState = context.read<AppState>();
-      if (appState.hasSeenCoachTour) return;
-      appState.markCoachTourSeen();
-      CoachTour.show(context, [
-        CoachStep(
-          targetKey: _settingsKey,
-          title: 'Your settings',
-          description: "Change your name, script, theme, or translation style here.",
-        ),
-        CoachStep(
-          targetKey: _continueReadingKey,
-          title: 'Pick up where you left off',
-          description: "This always points to your last read ayah, so you never lose your place.",
-        ),
-        CoachStep(
-          targetKey: _browseKey,
-          title: 'Browse any Surah or Juz',
-          description: "Jump anywhere in the Quran whenever you want, without disturbing your progress.",
-        ),
-      ]);
-    });
+    _greetingPhrase = _greetings[Random().nextInt(_greetings.length)];
   }
 
   @override
@@ -102,15 +89,6 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: const Text('wird.', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2)),
-        actions: [
-          IconButton(
-            key: _settingsKey,
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            ),
-          ),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -165,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 32),
               KeyedSubtree(
-                key: _continueReadingKey,
+                key: widget.continueReadingKey,
                 child: _ContinueReadingCard(
                   bookmarkName: bookmark.name,
                   surahName: resumeSurah.englishName,
@@ -179,20 +157,6 @@ class _HomeScreenState extends State<HomeScreen> {
               DateTime.now().weekday == DateTime.friday ? const _FridayCard() : _VerseOfTheDay(verse: verse),
               const SizedBox(height: 20),
               const _StatsCard(),
-              const SizedBox(height: 24),
-              OutlinedButton(
-                key: _browseKey,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colorScheme.onSurface,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  side: BorderSide(color: colorScheme.onSurface.withValues(alpha: 0.4)),
-                ),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const BrowseScreen()),
-                ),
-                child: const Text('Browse'),
-              ),
             ],
           ),
         ),
@@ -319,43 +283,14 @@ class _ContinueReadingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isNewUser ? 'START HERE' : bookmarkName.toUpperCase(),
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '$surahNumber $surahName · $ayahNumber/$ayahCount',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-              ),
-              Tooltip(
-                message: 'Bookmarks',
-                child: Material(
-                  color: colorScheme.onSurface.withValues(alpha: 0.1),
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const BookmarksScreen()),
-                    ),
-                    child: SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: Icon(Icons.menu_book_rounded, size: 17, color: colorScheme.onSurface),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            isNewUser ? 'START HERE' : bookmarkName.toUpperCase(),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$surahNumber $surahName · $ayahNumber/$ayahCount',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -532,21 +467,21 @@ class _StatsCardState extends State<_StatsCard> with SingleTickerProviderStateMi
             tabs: const [Tab(text: 'Today'), Tab(text: 'Week'), Tab(text: 'All time')],
           ),
           SizedBox(
-            height: 112,
+            height: 168,
             child: TabBarView(
               controller: _tabController,
               children: [
-                _StatsRow(stats: [
+                _StatsGrid(stats: [
                   _Stat('Ayahs read', '${appState.ayahsReadToday}'),
                   _Stat('Time reading', _formatDuration(appState.readingSecondsToday)),
                   _Stat('Hasanat', _formatCompactCount(appState.hasanatToday)),
                 ]),
-                _StatsRow(stats: [
+                _StatsGrid(stats: [
                   _Stat('Ayahs read', '${appState.ayahsReadThisWeek}'),
                   _Stat('Time reading', _formatDuration(appState.readingSecondsThisWeek)),
                   _Stat('Hasanat', _formatCompactCount(appState.hasanatThisWeek)),
                 ]),
-                _StatsRow(stats: [
+                _StatsGrid(stats: [
                   _Stat('Ayahs read', '${appState.totalAyahsRead}'),
                   _Stat('Time reading', _formatDuration(appState.totalReadingSeconds)),
                   _Stat('Best streak', '${appState.longestStreak}'),
@@ -561,39 +496,71 @@ class _StatsCardState extends State<_StatsCard> with SingleTickerProviderStateMi
   }
 }
 
-class _StatsRow extends StatelessWidget {
+/// Two stats per row rather than one long row of three-or-four - the old
+/// single-row layout meant All Time's four stats squeezed into the same
+/// width as Today/Week's three, each getting narrower the more stats a
+/// window had. A trailing odd stat out (Hasanat, on Today/Week) gets its own
+/// full-width row instead of a lone half-width column with an awkward gap
+/// next to it.
+class _StatsGrid extends StatelessWidget {
   final List<_Stat> stats;
-  const _StatsRow({required this.stats});
+  const _StatsGrid({required this.stats});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final rows = <List<_Stat>>[
+      for (var i = 0; i < stats.length; i += 2) stats.sublist(i, i + 2 > stats.length ? stats.length : i + 2),
+    ];
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+      child: Column(
         children: [
-          for (var i = 0; i < stats.length; i++) ...[
-            if (i > 0) SizedBox(width: 1, height: 40, child: Container(color: colorScheme.outlineVariant)),
-            Expanded(
-              child: Column(
+          for (var r = 0; r < rows.length; r++) ...[
+            if (r > 0) ...[
+              const SizedBox(height: 14),
+              Divider(height: 1, color: colorScheme.outlineVariant),
+              const SizedBox(height: 14),
+            ],
+            if (rows[r].length == 2)
+              Row(
                 children: [
-                  Text(
-                    stats[i].value,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    stats[i].label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
-                  ),
+                  Expanded(child: _StatCell(rows[r][0])),
+                  SizedBox(width: 1, height: 40, child: Container(color: colorScheme.outlineVariant)),
+                  Expanded(child: _StatCell(rows[r][1])),
                 ],
-              ),
-            ),
+              )
+            else
+              _StatCell(rows[r][0]),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  final _Stat stat;
+  const _StatCell(this.stat);
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Text(
+          stat.value,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          stat.label,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+        ),
+      ],
     );
   }
 }
@@ -608,15 +575,14 @@ class _FridayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final appState = context.read<AppState>();
     final surah = appState.quran.surahByNumber(18);
 
     return Material(
-      color: colorScheme.surfaceContainerLow,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => const ReadingScreen(
@@ -626,31 +592,57 @@ class _FridayCard extends StatelessWidget {
             ),
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "IT'S JUMU'AH",
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant),
+        child: Stack(
+          children: [
+            // A real photo rather than the flat surfaceContainerLow every
+            // other card uses - Jumu'ah is meant to feel like a different
+            // moment, not just another info card. Text colour below is
+            // fixed white rather than theme-adaptive on purpose: this card
+            // is its own visual context (a photo with a scrim), not part of
+            // the light/dark surface system the rest of the app follows.
+            Positioned.fill(
+              child: ImageFiltered(
+                // "a little bit, very little" - just enough to knock back
+                // the rock texture so it stops competing with the text; the
+                // photo still needs to read as itself, not become a smear.
+                imageFilter: ImageFilter.blur(sigmaX: 1.2, sigmaY: 1.2),
+                child: Image.asset('assets/images/jumuah_cave.jpg', fit: BoxFit.cover),
               ),
-              const SizedBox(height: 10),
-              Text(
-                "Friday is the best day of the week. Many Muslims read Surah Al-Kahf today, a tradition going back to the Prophet's own recommendation.",
-                style: TextStyle(fontSize: 14, height: 1.5, color: colorScheme.onSurface),
-              ),
-              const SizedBox(height: 14),
-              Row(
+            ),
+            // Scrim for contrast, not mood - without it, white text
+            // vanishes against the photo's bright sky and sun flare.
+            const Positioned.fill(child: ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.45))),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Text('18 ${surah.englishName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(
+                    "IT'S JUMU'AH",
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: Colors.white.withValues(alpha: 0.85)),
                   ),
-                  Icon(Icons.arrow_forward_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Friday is the best day of the week. Many Muslims read Surah Al-Kahf today, a tradition going back to the Prophet's own recommendation.",
+                    style: TextStyle(fontSize: 14, height: 1.5, color: Colors.white),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '18 ${surah.englishName}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white.withValues(alpha: 0.85)),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

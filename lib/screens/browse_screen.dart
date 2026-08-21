@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
+import '../services/playback_service.dart';
 import '../widgets/quick_page_physics.dart';
 import 'reading_screen.dart';
 
@@ -118,6 +119,12 @@ class _EmptySearchResult extends StatelessWidget {
   }
 }
 
+/// "Juz 1" for a surah wholly inside one Juz, "Juz 1-3" for one spanning several.
+String _juzRangeLabel(List<int> juzNumbers) {
+  if (juzNumbers.length == 1) return 'Juz ${juzNumbers.first}';
+  return 'Juz ${juzNumbers.first}-${juzNumbers.last}';
+}
+
 class _SurahListView extends StatelessWidget {
   final String query;
 
@@ -125,7 +132,8 @@ class _SurahListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final allSurahs = context.read<AppState>().quran.surahs;
+    final quran = context.read<AppState>().quran;
+    final allSurahs = quran.surahs;
     final fontFamily = context.watch<AppState>().quranScript.fontFamily;
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -147,11 +155,51 @@ class _SurahListView extends StatelessWidget {
             child: Text('${surah.number}', style: TextStyle(color: colorScheme.onSurfaceVariant)),
           ),
           title: Text(surah.englishName, style: const TextStyle(fontWeight: FontWeight.w500)),
-          subtitle: Text('${surah.name} · ${surah.ayahCount} ayahs'),
-          trailing: Text(
-            surah.arabicName,
-            textDirection: TextDirection.rtl,
-            style: TextStyle(fontFamily: fontFamily, fontSize: 18, height: 1.8),
+          // Always exactly two lines (rather than one long line that wraps
+          // unpredictably) so every row is the same height - otherwise the
+          // vertically-centered trailing play button/Arabic name drift up or
+          // down row to row depending on whether that row's text happened
+          // to wrap.
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${surah.name} · ${surah.ayahCount} ayahs'),
+              Text(_juzRangeLabel(quran.juzNumbersForSurah(surah.number))),
+            ],
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Consumer<PlaybackService>(
+                builder: (context, playback, _) {
+                  final isThisSurah = playback.surahState.surahNumber == surah.number;
+                  final isPlaying = isThisSurah && playback.surahState.status == SurahPlaybackStatus.playing;
+                  final isLoading = isThisSurah && playback.surahState.status == SurahPlaybackStatus.loading;
+                  return IconButton(
+                    tooltip: isPlaying ? 'Pause' : 'Listen to this Surah',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: isLoading
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(
+                            isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_outline_rounded,
+                            color: isThisSurah ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                          ),
+                    onPressed: () => isThisSurah
+                        ? playback.togglePlayPause()
+                        : context.read<AppState>().playSurah(playback, surah.number),
+                  );
+                },
+              ),
+              const SizedBox(width: 10),
+              Text(
+                surah.arabicName,
+                textDirection: TextDirection.rtl,
+                style: TextStyle(fontFamily: fontFamily, fontSize: 18, height: 1.8),
+              ),
+            ],
           ),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
@@ -188,6 +236,7 @@ class _JuzListView extends StatelessWidget {
       separatorBuilder: (_, _) => Divider(height: 1, color: colorScheme.outlineVariant),
       itemBuilder: (context, index) {
         final juz = juzs[index];
+        final startSurah = appState.quran.surahByNumber(juz.startSurah);
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           leading: SizedBox(
@@ -195,14 +244,23 @@ class _JuzListView extends StatelessWidget {
             child: Text('${juz.number}', style: TextStyle(color: colorScheme.onSurfaceVariant)),
           ),
           title: Text('Juz ${juz.number}', style: const TextStyle(fontWeight: FontWeight.w500)),
-          subtitle: Row(
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(juz.name, style: TextStyle(color: colorScheme.onSurfaceVariant)),
-              const SizedBox(width: 10),
+              Row(
+                children: [
+                  Text(juz.name, style: TextStyle(color: colorScheme.onSurfaceVariant)),
+                  const SizedBox(width: 10),
+                  Text(
+                    juz.arabicName,
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 15, height: 1.8, color: colorScheme.primary),
+                  ),
+                ],
+              ),
               Text(
-                juz.arabicName,
-                textDirection: TextDirection.rtl,
-                style: TextStyle(fontFamily: appState.quranScript.fontFamily, fontSize: 15, height: 1.8, color: colorScheme.primary),
+                'Starts in ${startSurah.englishName}, ayah ${juz.startAyah}',
+                style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
               ),
             ],
           ),

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
-import 'home_screen.dart';
+import 'root_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -36,7 +36,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final appState = context.read<AppState>();
     await appState.completeOnboarding(name: _nameController.text, script: _selectedScript);
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const RootScreen()));
   }
 
   @override

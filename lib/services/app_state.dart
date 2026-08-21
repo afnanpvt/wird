@@ -3,9 +3,11 @@ import 'package:flutter/foundation.dart';
 import '../models/bookmark.dart';
 import '../models/favorite_ayah.dart';
 import '../models/quran_script.dart';
+import '../models/reciter.dart';
 import '../models/streak_state.dart';
 import 'bookmarks_service.dart';
 import 'favorites_service.dart';
+import 'playback_service.dart';
 import 'progress_service.dart';
 import 'quran_repository.dart';
 import 'settings_service.dart';
@@ -28,6 +30,7 @@ class AppState extends ChangeNotifier {
   AppThemeMode themeMode = AppThemeMode.light;
   bool useSimpleTranslation = false;
   QuranScript quranScript = QuranScript.indoPakNastaleeq;
+  Reciter reciter = Reciter.yasserAlDosari;
   List<FavoriteAyah> favorites = const [];
   double fontScale = 1.0;
   bool showTranslation = true;
@@ -37,6 +40,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> init() async {
     quranScript = _settingsService.getScript();
+    reciter = _settingsService.getReciter();
     await quran.load(quranScript);
     await _streakService.reconcileToYesterday();
     streakState = _streakService.getState();
@@ -58,6 +62,13 @@ class AppState extends ChangeNotifier {
     quranScript = script;
     await quran.load(script);
     await _settingsService.saveScript(script);
+    notifyListeners();
+  }
+
+  Future<void> setReciter(Reciter value) async {
+    if (value == reciter) return;
+    reciter = value;
+    await _settingsService.saveReciter(value);
     notifyListeners();
   }
 
@@ -202,6 +213,23 @@ class AppState extends ChangeNotifier {
   int get sessionCount => _streakService.getSessionCount();
 
   Future<void> recordSessionStarted() => _streakService.recordSessionStarted();
+
+  /// Looks up [surahNumber]'s ayahs/name and the current reciter, then
+  /// starts continuous playback on [playback] - the shared lookup both the
+  /// Browse "listen" entry point and the auto-advance-to-next-surah
+  /// callback use, so PlaybackService itself never needs to know about
+  /// QuranRepository.
+  Future<void> playSurah(PlaybackService playback, int surahNumber, {int startAyahIndex = 0}) async {
+    final ayahs = quran.ayahsForSurah(surahNumber);
+    if (ayahs.isEmpty) return;
+    await playback.playSurah(
+      surahNumber: surahNumber,
+      surahName: quran.surahByNumber(surahNumber).englishName,
+      ayahs: ayahs,
+      reciter: reciter,
+      startAyahIndex: startAyahIndex,
+    );
+  }
 
   bool isFavorite(int surahNumber, int ayahNumber) =>
       favorites.any((f) => f.surahNumber == surahNumber && f.ayahNumber == ayahNumber);

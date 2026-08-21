@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
 import '../main.dart';
@@ -12,29 +11,11 @@ import '../models/ayah.dart';
 import '../models/bookmark.dart';
 import '../models/juz_progress.dart';
 import '../models/quran_script.dart';
+import '../models/reciter.dart';
 import '../services/app_state.dart';
-import '../services/verse_audio.dart';
+import '../services/playback_service.dart';
 import '../widgets/completion_dialog.dart';
 import '../widgets/quick_page_physics.dart';
-
-enum _AudioStatus { idle, loading, playing, error }
-
-/// Which ayah (if any) the screen's single [AudioPlayer] is currently
-/// loading/playing/erroring on, and what state it's in. Only one verse can
-/// play at a time - matches the confirmed design (tap plays that one verse,
-/// no auto-continue), and mirrors how a reader physically swipes one verse
-/// at a time already.
-class _AudioState {
-  final int? surahNumber;
-  final int? ayahNumber;
-  final _AudioStatus status;
-
-  const _AudioState({this.surahNumber, this.ayahNumber, this.status = _AudioStatus.idle});
-
-  bool isFor(Ayah ayah) => surahNumber == ayah.surahNumber && ayahNumber == ayah.ayahNumber;
-
-  static const idle = _AudioState();
-}
 
 /// Surahs that traditionally omit the opening Bismillah (only At-Tawbah).
 const _surahsWithoutBismillah = {9};
@@ -59,13 +40,16 @@ class ReadingScreen extends StatefulWidget {
 
   /// Whether reading here should auto-advance the home screen's default
   /// bookmark. True for the normal continuous-reading flow; false for
-  /// one-off jumps (Browse, Juz, verse of the day, a non-default bookmark)
-  /// so they don't clobber real progress.
+  /// one-off jumps (Browse, Juz, verse of the day, a saved verse) so they
+  /// don't clobber real progress.
   final bool updatesContinuePoint;
 
-  /// Internal: threads which specific bookmark is being auto-advanced across
-  /// a surah transition (see [_goForward]). Callers outside this file should
-  /// use [updatesContinuePoint] instead — leave this null.
+  /// Which bookmark (default or otherwise) this session should auto-advance
+  /// as the reader pages through. Set this directly when opening a specific
+  /// named bookmark - e.g. from the bookmarks list - so reading forward from
+  /// it moves *that* bookmark, not just the default. Leave null and use
+  /// [updatesContinuePoint] for every other entry point; that resolves to the
+  /// default bookmark's id, or no tracking at all.
   final String? trackingBookmarkId;
 
   const ReadingScreen({
@@ -105,10 +89,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   static const _flushEverySeconds = 10;
   int _unflushedSeconds = 0;
   late final AppState _appState;
-
-  late final AudioPlayer _audioPlayer;
-  StreamSubscription<PlayerState>? _audioStateSubscription;
-  final ValueNotifier<_AudioState> _audioState = ValueNotifier(_AudioState.idle);
+  late final PlaybackService _playback;
 
   int get _pageCount => _ayahs.length;
   bool get _isTracking => _trackingBookmarkId != null;
@@ -142,31 +123,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     context.read<AppState>().recordSessionStarted();
     _startTicker();
 
-    _audioPlayer = AudioPlayer();
-    // just_audio's play() future resolves when playback ENDS, not when it
-    // starts - awaiting it to decide "now playing" left the button stuck
-    // showing its loading spinner for the whole verse, then flipping to
-    // "playing" right as this same stream was setting it back to idle. The
-    // player's own state stream is the only reliable source for "is it
-    // actually audible right now".
-    _audioStateSubscription = _audioPlayer.playerStateStream.listen((state) {
-      final current = _audioState.value;
-      // Nothing of ours is loaded/playing - a stray event from a source
-      // that's already been superseded. Pause/stop from our own toggle or
-      // a page change already set _audioState directly.
-      if (current.status == _AudioStatus.idle || current.status == _AudioStatus.error) return;
-
-      if (state.processingState == ProcessingState.completed) {
-        _audioState.value = _AudioState.idle;
-      } else if (state.playing && current.status != _AudioStatus.playing) {
-        // Not gated on processingState == ready: for a verse-length clip
-        // the loading/buffering phase is already covered by the "loading"
-        // status set synchronously before play() is even called, so as soon
-        // as play() flips the player's own playing flag, this is the
-        // earliest honest "started" signal available.
-        _audioState.value = _AudioState(surahNumber: current.surahNumber, ayahNumber: current.ayahNumber, status: _AudioStatus.playing);
-      }
-    });
+    _playback = context.read<PlaybackService>();
   }
 
   @override
@@ -184,9 +141,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _pageController.dispose();
     _confettiController.dispose();
     _elapsed.dispose();
-    _audioStateSubscription?.cancel();
-    _audioPlayer.dispose();
-    _audioState.dispose();
+    _playback.stopVerse();
     super.dispose();
   }
 
@@ -282,45 +237,25 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _sessionHasanat += appState.quran.hasanatForAyah(content.surahNumber, content.ayahNumber);
   }
 
-  /// Bumped on every stop/new-play request. A [_toggleVerseAudio] call
-  /// checks this after each await and bails if it's been superseded -
-  /// without that, a rapid double-tap (or a page change landing mid-load)
-  /// could let a stale request call play() on the shared player *after* a
-  /// newer stop() already ran, restarting audio that was just cancelled.
-  int _audioRequestId = 0;
-
-  void _stopAudio() {
-    _audioRequestId++;
-    if (_audioState.value.status == _AudioStatus.idle) return;
-    _audioPlayer.stop();
-    _audioState.value = _AudioState.idle;
-  }
+  void _stopAudio() => _playback.stopVerse();
 
   /// Tapping the verse that's currently loading or playing stops it -
   /// there's no pause/resume, just play-this-one-verse-or-don't, matching
   /// the confirmed scope (single verse, no auto-continue). Tapping any other
   /// verse stops whatever was playing and starts the new one from the top.
+  /// Delegates to [PlaybackService], which is also used for continuous
+  /// Surah playback elsewhere in the app - the two are mutually exclusive.
   Future<void> _toggleVerseAudio(Ayah ayah) async {
-    final current = _audioState.value;
-    if (current.isFor(ayah) && current.status != _AudioStatus.error) {
-      _stopAudio();
-      return;
-    }
-
-    final requestId = ++_audioRequestId;
-    _audioState.value = _AudioState(surahNumber: ayah.surahNumber, ayahNumber: ayah.ayahNumber, status: _AudioStatus.loading);
-    try {
-      await _audioPlayer.setUrl(verseAudioUrl(ayah.surahNumber, ayah.ayahNumber));
-      if (requestId != _audioRequestId) return;
-      // Not awaited for state purposes - play()'s future only resolves once
-      // playback ENDS, not when it starts. The stream listener above is
-      // what flips this to "playing"; this await just exists so a failure
-      // partway through (a dropped connection mid-stream, say) still lands
-      // in the catch block below instead of becoming an unhandled rejection.
-      await _audioPlayer.play();
-    } catch (_) {
-      if (requestId != _audioRequestId || !mounted) return;
-      _audioState.value = _AudioState(surahNumber: ayah.surahNumber, ayahNumber: ayah.ayahNumber, status: _AudioStatus.error);
+    final appState = context.read<AppState>();
+    await _playback.playVerse(
+      surahNumber: ayah.surahNumber,
+      ayahNumber: ayah.ayahNumber,
+      url: appState.reciter.audioUrlFor(ayah.surahNumber, ayah.ayahNumber),
+      surahName: appState.quran.surahByNumber(ayah.surahNumber).englishName,
+    );
+    if (!mounted) return;
+    final state = _playback.verseState.value;
+    if (state.isFor(ayah.surahNumber, ayah.ayahNumber) && state.status == VerseAudioStatus.error) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Couldn't play audio - check your connection")),
       );
@@ -383,6 +318,19 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
       _lastJuzNumber = juzNumber;
       _confettiController.play();
     }
+  }
+
+  void _jumpToJuzStart(int juzNumber) {
+    final juz = context.read<AppState>().quran.juzs.firstWhere((j) => j.number == juzNumber);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReadingScreen(
+          initialSurahNumber: juz.startSurah,
+          initialAyahNumber: juz.startAyah,
+          updatesContinuePoint: false,
+        ),
+      ),
+    );
   }
 
   void _goBack() {
@@ -498,12 +446,12 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
           // that placement collided with the left/right edge tap zones (see
           // the PageView's edge GestureDetectors below) and looked wrong
           // sitting on top of the Arabic text for short verses.
-          ValueListenableBuilder<_AudioState>(
-            valueListenable: _audioState,
+          ValueListenableBuilder<VerseAudioState>(
+            valueListenable: _playback.verseState,
             builder: (context, state, _) {
-              final isCurrent = state.isFor(content);
-              final isPlaying = isCurrent && state.status == _AudioStatus.playing;
-              final isLoading = isCurrent && state.status == _AudioStatus.loading;
+              final isCurrent = state.isFor(content.surahNumber, content.ayahNumber);
+              final isPlaying = isCurrent && state.status == VerseAudioStatus.playing;
+              final isLoading = isCurrent && state.status == VerseAudioStatus.loading;
               return IconButton(
                 tooltip: isPlaying ? 'Stop recitation' : 'Play recitation',
                 icon: isLoading
@@ -533,6 +481,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
                 sessionAyahCount: _sessionAyahCount,
                 elapsed: _elapsed,
                 hasanatLabel: _formatCompactHasanat(_sessionHasanat),
+                onTapJuz: () => _jumpToJuzStart(juzProgress.juzNumber),
               ),
               Expanded(
                 child: Stack(
@@ -641,12 +590,14 @@ class _JuzProgressHeader extends StatelessWidget {
   final int sessionAyahCount;
   final ValueListenable<Duration> elapsed;
   final String hasanatLabel;
+  final VoidCallback onTapJuz;
 
   const _JuzProgressHeader({
     required this.progress,
     required this.sessionAyahCount,
     required this.elapsed,
     required this.hasanatLabel,
+    required this.onTapJuz,
   });
 
   @override
@@ -661,9 +612,20 @@ class _JuzProgressHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Juz ${progress.juzNumber} · ${progress.versesLeftInJuz} verses left',
-                  style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: onTapJuz,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Juz ${progress.juzNumber} · ${progress.versesLeftInJuz} verses left',
+                        style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(Icons.chevron_right_rounded, size: 15, color: colorScheme.onSurfaceVariant),
+                    ],
+                  ),
                 ),
               ),
               _StatChip(

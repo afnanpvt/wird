@@ -122,10 +122,15 @@ class BookmarksScreen extends StatelessWidget {
             ),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
+                // trackingBookmarkId, not updatesContinuePoint: reading from
+                // ANY named bookmark should move that bookmark as you go, not
+                // just the default one - otherwise a non-default bookmark
+                // stays frozen at wherever it was saved until you manually
+                // resave it, even though you just read forward from it.
                 builder: (_) => ReadingScreen(
                   initialSurahNumber: bookmark.surahNumber,
                   initialAyahNumber: bookmark.ayahNumber,
-                  updatesContinuePoint: bookmark.isDefault,
+                  trackingBookmarkId: bookmark.id,
                 ),
               ),
             ),

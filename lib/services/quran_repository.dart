@@ -119,6 +119,27 @@ class QuranRepository {
 
   Surah surahByNumber(int number) => _surahs.firstWhere((s) => s.number == number);
 
+  /// Every Juz number whose range overlaps [surahNumber] - most surahs sit
+  /// entirely within one Juz, but longer ones (Al-Baqara, etc.) span several.
+  List<int> juzNumbersForSurah(int surahNumber) {
+    final ayahs = ayahsForSurah(surahNumber);
+    if (ayahs.isEmpty) return const [];
+    final surahStartGlobal = globalIndexOf(surahNumber, ayahs.first.ayahNumber);
+    final surahEndGlobal = globalIndexOf(surahNumber, ayahs.last.ayahNumber);
+
+    final result = <int>[];
+    for (var i = 0; i < _juzs.length; i++) {
+      final juzStartGlobal = globalIndexOf(_juzs[i].startSurah, _juzs[i].startAyah);
+      final juzEndGlobal = i + 1 < _juzs.length
+          ? globalIndexOf(_juzs[i + 1].startSurah, _juzs[i + 1].startAyah) - 1
+          : totalAyahCount - 1;
+      if (juzStartGlobal <= surahEndGlobal && juzEndGlobal >= surahStartGlobal) {
+        result.add(_juzs[i].number);
+      }
+    }
+    return result;
+  }
+
   List<Ayah> ayahsForSurah(int surahNumber) => _ayahsBySurah[surahNumber] ?? const [];
 
   int get totalAyahCount => _allAyahs.length;

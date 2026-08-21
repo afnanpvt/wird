@@ -1,6 +1,7 @@
 import 'package:hive/hive.dart';
 
 import '../models/quran_script.dart';
+import '../models/reciter.dart';
 import 'hive_service.dart';
 
 /// Persisted values: 'system', 'light', 'dark'.
@@ -59,4 +60,12 @@ class SettingsService {
   bool getShowTransliteration() => _box.get('showTransliteration') as bool? ?? false;
 
   Future<void> saveShowTransliteration(bool value) => _box.put('showTransliteration', value);
+
+  Reciter getReciter() {
+    final value = _box.get('reciter') as String?;
+    if (value == null) return Reciter.yasserAlDosari;
+    return Reciter.values.firstWhere((r) => r.name == value, orElse: () => Reciter.yasserAlDosari);
+  }
+
+  Future<void> saveReciter(Reciter reciter) => _box.put('reciter', reciter.name);
 }

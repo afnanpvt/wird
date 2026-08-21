@@ -1,11 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 
-import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/root_screen.dart';
 import 'services/app_state.dart';
 import 'services/hive_service.dart';
+import 'services/playback_service.dart';
 import 'widgets/welcome_dialog.dart';
 
 final routeObserver = RouteObserver<PageRoute<void>>();
@@ -36,9 +38,17 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initHive();
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.afnan.wird.channel.audio',
+    androidNotificationChannelName: 'Surah playback',
+    androidNotificationOngoing: true,
+  );
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AppState(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppState()),
+        ChangeNotifierProvider(create: (_) => PlaybackService()),
+      ],
       child: const WirdApp(),
     ),
   );
@@ -180,7 +190,7 @@ class _BootstrapState extends State<_Bootstrap> {
           appState.markWelcomeModalShown();
         }
       }
-      child = const HomeScreen();
+      child = const RootScreen();
       key = const ValueKey('home');
     }
 

@@ -39,15 +39,31 @@ jobs:
           flutter pub get
           flutter build apk --release
 
-      - name: Name the release APK after the app and version
+      # Two names for the same APK, on purpose:
+      #
+      #   wird-<version>.apk  archival, tells you what you downloaded
+      #   wird.apk            the stable link target, never changes
+      #
+      # Anything shared publicly must point at the version-less name. A
+      # /releases/latest/download/<file> URL resolves "latest" to the newest
+      # release and THEN looks for that exact filename inside it, so a
+      # version-pinned share link (wird-1.5.0.apk) 404s the instant the next
+      # release ships - and it 404s to an HTML page, which Android in-app
+      # browsers render as a blank stuck screen rather than an error. Every
+      # previously-posted download link broke this way.
+      - name: Name the release APK
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/wird-${VERSION}.apk"
+          cd build/app/outputs/flutter-apk
+          cp app-release.apk "wird-${VERSION}.apk"
+          cp app-release.apk wird.apk
 
       - name: Attach APK to the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/app/outputs/flutter-apk/wird-*.apk
+          files: |
+            build/app/outputs/flutter-apk/wird-*.apk
+            build/app/outputs/flutter-apk/wird.apk
           generate_release_notes: true
 
       - name: Set up Python for fdroidserver

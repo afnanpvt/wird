@@ -18,7 +18,7 @@ if this feels inspired by the gamified habit apps you already know, it is. i jus
 
 ## get it
 
-**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.5.0.apk)**
+**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.6.0.apk)**
 tap it, it downloads right away, no page in between.
 
 **or, for auto-updates: f-droid**
@@ -26,19 +26,20 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.5.0
+## what's new in 1.6.0
 
-- **recitation audio.** tap play on any ayah to hear it, mishary alafasy, streamed only when you tap it. the one thing in this app that touches the network, and only that.
-- fixed the session timer opening already showing hours of your all-time total instead of counting up from zero
-- fixed the streak calendar's "days read" line bobbing between months
-- the end-of-session summary now matches the home screen's stat styling, and stays quiet on a visit where you didn't actually read anything
+- **listen to a whole surah**, not just one verse at a time: tap the play icon next to any surah in browse to start continuous recitation, ayah after ayah, that keeps playing in the background with real lock-screen and notification controls
+- **four reciters** to choose from in settings: yasser al-dosari (now the default), abdul rahman al-sudais, mahmoud khalil al-husary, and abdul basit. mishary alafasy has been retired
+- browse's surah and juz tabs now point at each other: every surah shows which juz it falls in, every juz shows which surah it starts in, and tapping the juz label while reading jumps straight to that juz's start
+- a persistent bottom bar (home, browse, bookmarks, settings) replaces the old scroll-down-and-tap navigation
+- fixed uneven spacing in browse's surah list
 
-and from 1.4.0, most of it built by [alhaan](https://github.com/alhaan313), this project's first outside contributor: named bookmarks, saving a verse with a tap, hasanat tracking, a real streak calendar, optional transliteration, and search in browse. plus corrected tajweed marks in the indo-pak text from the release before that, verified against the king fahd complex mushaf, matters if you recite from this app.
+and from 1.5.0: recitation audio for a single verse (the feature the above builds on), a fixed session timer that was opening already showing hours of your all-time total, a streak calendar that no longer bobs between months, and an end-of-session summary that matches the home screen's stat styling.
 
 ## what it actually does
 
 - reads the quran in three different scripts, indo-pak nastaleeq, uthmani naskh, and uthmani with tajweed color-coding, switchable anytime, each paired with a properly-sourced font and text so the actual letterforms and marks render correctly, not just "close enough"
-- tap play on any ayah to hear it recited (mishary alafasy), streamed on demand
+- tap play on any ayah to hear it recited, or tap a surah's play icon in browse to listen straight through it in the background - four reciters to pick from in settings, streamed on demand
 - arabic text alongside two english translations (saheeh international, and the clear quran for when the literal translation isn't clicking), plus an optional transliteration line
 - as many named bookmarks as you want, one of them set as your home screen default, the rest just sitting there until you resave them
 - save any verse with a tap, find it again later under browse's saved tab
@@ -60,7 +61,7 @@ everything wird tracks, your streak, your progress, your reading position, lives
 
 that also means: if you uninstall the app, it's gone. there's no cloud backup to restore from. that's the tradeoff for genuinely not collecting anything.
 
-one honest exception as of 1.5.0: tapping play on an ayah streams that verse's recitation from everyayah.com. that's a request for public audio, not anything about you, and it only happens when you tap play, nothing loads or calls out on its own. it's also the only thing in this app that needs internet access at all.
+one honest exception as of 1.5.0: tapping play streams that recitation from everyayah.com, whether it's a single verse or a whole surah playing in the background. that's a request for public audio, not anything about you, and it only happens when you tap play, nothing loads or calls out on its own. it's also the only thing in this app that needs internet access at all.
 
 ## contributing
 

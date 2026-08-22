@@ -104,6 +104,21 @@ class StreakService {
     }
   }
 
+  /// The earliest date anything was ever logged as read, or null if nothing
+  /// has been read yet - the calendar uses this so it never marks a day
+  /// before the app was even in use as "missed".
+  DateTime? earliestLoggedDate() {
+    DateTime? earliest;
+    for (final key in _dailyLogsBox.keys) {
+      final date = DateTime.parse(key as String);
+      if (earliest == null || date.isBefore(earliest)) earliest = date;
+    }
+    return earliest;
+  }
+
+  Map<DateTime, DayOutcome> dayOutcomes({required DateTime start, required DateTime end}) =>
+      classifyDays(start: start, end: end, wasReadOnDate: _wasReadOn);
+
   int ayahsReadOn(DateTime date) => _dailyLogsBox.get(dateKey(date)) as int? ?? 0;
 
   int ayahsReadToday() => ayahsReadOn(DateTime.now());

@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
-import '../services/playback_service.dart';
 import '../widgets/quick_page_physics.dart';
+import '../widgets/surah_list_view.dart';
 import 'reading_screen.dart';
 
 /// Lowercases and strips everything but letters/digits, so "Al-Baqara",
@@ -81,7 +81,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
               child: TabBarView(
                 physics: const QuickPageScrollPhysics(),
                 children: [
-                  _SurahListView(query: _query),
+                  SurahListView(query: _query),
                   _JuzListView(query: _query),
                   _SavedListView(query: _query),
                 ],
@@ -115,103 +115,6 @@ class _EmptySearchResult extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// "Juz 1" for a surah wholly inside one Juz, "Juz 1-3" for one spanning several.
-String _juzRangeLabel(List<int> juzNumbers) {
-  if (juzNumbers.length == 1) return 'Juz ${juzNumbers.first}';
-  return 'Juz ${juzNumbers.first}-${juzNumbers.last}';
-}
-
-class _SurahListView extends StatelessWidget {
-  final String query;
-
-  const _SurahListView({required this.query});
-
-  @override
-  Widget build(BuildContext context) {
-    final quran = context.read<AppState>().quran;
-    final allSurahs = quran.surahs;
-    final fontFamily = context.watch<AppState>().quranScript.fontFamily;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final surahs = allSurahs
-        .where((s) => _matchesQuery(query, number: s.number, names: [s.name, s.englishName]))
-        .toList();
-
-    if (surahs.isEmpty) return const _EmptySearchResult();
-
-    return ListView.separated(
-      itemCount: surahs.length,
-      separatorBuilder: (_, _) => Divider(height: 1, color: colorScheme.outlineVariant),
-      itemBuilder: (context, index) {
-        final surah = surahs[index];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          leading: SizedBox(
-            width: 32,
-            child: Text('${surah.number}', style: TextStyle(color: colorScheme.onSurfaceVariant)),
-          ),
-          title: Text(surah.englishName, style: const TextStyle(fontWeight: FontWeight.w500)),
-          // Always exactly two lines (rather than one long line that wraps
-          // unpredictably) so every row is the same height - otherwise the
-          // vertically-centered trailing play button/Arabic name drift up or
-          // down row to row depending on whether that row's text happened
-          // to wrap.
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('${surah.name} · ${surah.ayahCount} ayahs'),
-              Text(_juzRangeLabel(quran.juzNumbersForSurah(surah.number))),
-            ],
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Consumer<PlaybackService>(
-                builder: (context, playback, _) {
-                  final isThisSurah = playback.surahState.surahNumber == surah.number;
-                  final isPlaying = isThisSurah && playback.surahState.status == SurahPlaybackStatus.playing;
-                  final isLoading = isThisSurah && playback.surahState.status == SurahPlaybackStatus.loading;
-                  return IconButton(
-                    tooltip: isPlaying ? 'Pause' : 'Listen to this Surah',
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    icon: isLoading
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Icon(
-                            isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_outline_rounded,
-                            color: isThisSurah ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                          ),
-                    onPressed: () => isThisSurah
-                        ? playback.togglePlayPause()
-                        : context.read<AppState>().playSurah(playback, surah.number),
-                  );
-                },
-              ),
-              const SizedBox(width: 10),
-              Text(
-                surah.arabicName,
-                textDirection: TextDirection.rtl,
-                style: TextStyle(fontFamily: fontFamily, fontSize: 18, height: 1.8),
-              ),
-            ],
-          ),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ReadingScreen(
-                initialSurahNumber: surah.number,
-                initialAyahNumber: 1,
-                updatesContinuePoint: false,
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/ayah.dart';
@@ -18,9 +17,10 @@ enum VerseAudioStatus { idle, loading, playing, error }
 class VerseAudioState {
   final int? surahNumber;
   final int? ayahNumber;
+  final String? surahName;
   final VerseAudioStatus status;
 
-  const VerseAudioState({this.surahNumber, this.ayahNumber, this.status = VerseAudioStatus.idle});
+  const VerseAudioState({this.surahNumber, this.ayahNumber, this.surahName, this.status = VerseAudioStatus.idle});
 
   bool isFor(int surahNumber, int ayahNumber) => this.surahNumber == surahNumber && this.ayahNumber == ayahNumber;
 
@@ -33,6 +33,7 @@ enum SurahPlaybackStatus { idle, loading, playing, paused, error }
 class SurahPlaybackState {
   final int? surahNumber;
   final String? surahName;
+  final String? reciterName;
   final int ayahCount;
   final int currentAyahIndex;
   final SurahPlaybackStatus status;
@@ -40,6 +41,7 @@ class SurahPlaybackState {
   const SurahPlaybackState({
     this.surahNumber,
     this.surahName,
+    this.reciterName,
     this.ayahCount = 0,
     this.currentAyahIndex = 0,
     this.status = SurahPlaybackStatus.idle,
@@ -52,6 +54,7 @@ class SurahPlaybackState {
   SurahPlaybackState copyWith({int? currentAyahIndex, SurahPlaybackStatus? status}) => SurahPlaybackState(
         surahNumber: surahNumber,
         surahName: surahName,
+        reciterName: reciterName,
         ayahCount: ayahCount,
         currentAyahIndex: currentAyahIndex ?? this.currentAyahIndex,
         status: status ?? this.status,
@@ -64,12 +67,13 @@ enum _Mode { none, verse, surah }
 
 /// The single shared audio engine for the whole app.
 ///
-/// just_audio_background allows exactly one live [AudioPlayer] per process -
-/// a second instance throws "just_audio_background supports only a single
-/// player instance" - so this is the one and only player, used both for the
-/// reading screen's tap-to-play-one-verse and for continuous "listen to this
-/// Surah" playback. The two modes are mutually exclusive: starting one always
-/// stops the other first.
+/// audio_service allows exactly one live [AudioPlayer] to be wrapped by the
+/// app's [WirdAudioHandler] - so this is the one and only player, used both
+/// for the reading screen's tap-to-play-one-verse and for continuous "listen
+/// to this Surah" playback. The two modes are mutually exclusive: starting
+/// one always stops the other first. [WirdAudioHandler] reads this service's
+/// state directly to drive the lock-screen/notification media session -
+/// PlaybackService itself has no idea audio_service exists.
 class PlaybackService extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
   _Mode _mode = _Mode.none;
@@ -79,9 +83,13 @@ class PlaybackService extends ChangeNotifier {
   SurahPlaybackState surahState = SurahPlaybackState.idle;
 
   /// Wired once by [RootScreen] so a finished Surah can advance into the
-  /// next one on its own, without this service needing to know about
-  /// QuranRepository or the reciter setting itself.
-  Future<void> Function(int surahNumber)? _playNextSurah;
+  /// next one on its own, and so the Now Playing screen's Surah-level
+  /// previous/next buttons can jump to an arbitrary Surah - all without this
+  /// service needing to know about QuranRepository or the reciter setting
+  /// itself.
+  Future<void> Function(int surahNumber)? _jumpToSurah;
+
+  bool _loopCurrentAyah = false;
 
   PlaybackService() {
     _player.playerStateStream.listen(_onPlayerState);
@@ -90,22 +98,51 @@ class PlaybackService extends ChangeNotifier {
 
   AudioPlayer get player => _player;
 
-  void configureAutoAdvance(Future<void> Function(int surahNumber) playNextSurah) {
-    _playNextSurah = playNextSurah;
+  bool get loopCurrentAyah => _loopCurrentAyah;
+
+  void configureAutoAdvance(Future<void> Function(int surahNumber) jumpToSurah) {
+    _jumpToSurah = jumpToSurah;
+  }
+
+  /// Repeats whichever ayah is currently playing indefinitely, instead of
+  /// advancing to the next one - useful for memorising a single verse.
+  /// Off automatically switches back to normal auto-advance through the
+  /// Surah on the next ayah boundary, since [LoopMode.off] is just_audio's
+  /// own default.
+  Future<void> setLoopCurrentAyah(bool value) async {
+    _loopCurrentAyah = value;
+    notifyListeners();
+    await _player.setLoopMode(value ? LoopMode.one : LoopMode.off);
+  }
+
+  /// Jumps straight to [surahNumber], staying in continuous-listen mode -
+  /// the Now Playing screen's Surah-level previous/next controls.
+  Future<void> skipToSurah(int surahNumber) async {
+    if (_mode != _Mode.surah || !surahState.isActive) return;
+    final jump = _jumpToSurah;
+    if (jump == null || surahNumber < 1 || surahNumber > 114) return;
+    await jump(surahNumber);
   }
 
   /// Cover shown in the lock-screen/notification media player. There's no
   /// per-Surah artwork, so this is just the app's own square mark - still
-  /// much better than the blank/generic icon a null [MediaItem.artUri]
-  /// leaves behind. `MediaItem.artUri` needs a real file on disk (a `file://`
-  /// URI is the only scheme audio_service resolves without a network round
-  /// trip - see its `_loadArtwork`), so the bundled asset is copied out to
-  /// the temp directory once and reused for every track after that.
+  /// much better than the blank/generic icon a null `MediaItem.artUri`
+  /// leaves behind. Deliberately a solid near-black render of the mark
+  /// (not the cream app icon): Android's media notification derives that
+  /// card's background gradient from the artwork's own colors, so a light
+  /// icon there was rendering as the washed-out grey card the icon.png
+  /// version produced - a dark source image is what keeps the card dark.
+  /// `MediaItem.artUri` needs a real file on disk (a `file://` URI is the
+  /// only scheme audio_service resolves without a network round trip - see
+  /// its `_loadArtwork`), so the bundled asset is copied out to the temp
+  /// directory once and reused for every track after that. Public because
+  /// [WirdAudioHandler] needs it too, to build the MediaItem it broadcasts
+  /// to the OS.
   Future<Uri>? _artUriFuture;
 
-  Future<Uri> _resolveArtUri() {
+  Future<Uri> resolveArtUri() {
     return _artUriFuture ??= () async {
-      final bytes = await rootBundle.load('assets/images/icon.png');
+      final bytes = await rootBundle.load('assets/images/notification_cover.png');
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/wird_cover.png');
       await file.writeAsBytes(bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes), flush: true);
@@ -159,19 +196,15 @@ class PlaybackService extends ChangeNotifier {
     stopSurah();
     _mode = _Mode.verse;
     final requestId = ++_requestId;
-    verseState.value = VerseAudioState(surahNumber: surahNumber, ayahNumber: ayahNumber, status: VerseAudioStatus.loading);
+    verseState.value =
+        VerseAudioState(surahNumber: surahNumber, ayahNumber: ayahNumber, surahName: surahName, status: VerseAudioStatus.loading);
     try {
-      final artUri = await _resolveArtUri();
-      if (requestId != _requestId) return;
-      await _player.setAudioSource(AudioSource.uri(
-        Uri.parse(url),
-        tag: MediaItem(id: '$surahNumber:$ayahNumber', title: 'Ayah $ayahNumber', album: surahName, artUri: artUri),
-      ));
+      await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
       if (requestId != _requestId) return;
       await _player.play();
     } catch (_) {
       if (requestId != _requestId) return;
-      verseState.value = VerseAudioState(surahNumber: surahNumber, ayahNumber: ayahNumber, status: VerseAudioStatus.error);
+      verseState.value = VerseAudioState(surahNumber: surahNumber, ayahNumber: ayahNumber, surahName: surahName, status: VerseAudioStatus.error);
     }
   }
 
@@ -198,29 +231,24 @@ class PlaybackService extends ChangeNotifier {
     stopVerse();
     _requestId++;
     _mode = _Mode.surah;
+    // A loop set on a specific ayah doesn't carry meaning once the queue
+    // itself changes - starting fresh, auto-advancing, or skipping Surahs
+    // should never leave loop silently stuck on for the wrong verse.
+    _loopCurrentAyah = false;
+    unawaited(_player.setLoopMode(LoopMode.off));
     surahState = SurahPlaybackState(
       surahNumber: surahNumber,
       surahName: surahName,
+      reciterName: reciter.displayName,
       ayahCount: ayahs.length,
       currentAyahIndex: startAyahIndex,
       status: SurahPlaybackStatus.loading,
     );
     notifyListeners();
 
-    final artUri = await _resolveArtUri();
     if (_mode != _Mode.surah || surahState.surahNumber != surahNumber) return;
     final playlist = [
-      for (final ayah in ayahs)
-        AudioSource.uri(
-          Uri.parse(reciter.audioUrlFor(ayah.surahNumber, ayah.ayahNumber)),
-          tag: MediaItem(
-            id: '${ayah.surahNumber}:${ayah.ayahNumber}',
-            title: 'Ayah ${ayah.ayahNumber}',
-            album: surahName,
-            artist: reciter.displayName,
-            artUri: artUri,
-          ),
-        ),
+      for (final ayah in ayahs) AudioSource.uri(Uri.parse(reciter.audioUrlFor(ayah.surahNumber, ayah.ayahNumber))),
     ];
     try {
       await _player.setAudioSources(playlist, initialIndex: startAyahIndex);
@@ -257,12 +285,12 @@ class PlaybackService extends ChangeNotifier {
 
   Future<void> _advanceToNextSurah() async {
     final current = surahState.surahNumber;
-    final next = _playNextSurah;
-    if (current == null || next == null || current >= 114) {
+    final jump = _jumpToSurah;
+    if (current == null || jump == null || current >= 114) {
       stopSurah();
       return;
     }
-    await next(current + 1);
+    await jump(current + 1);
   }
 
   @override

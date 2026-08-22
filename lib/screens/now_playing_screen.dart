@@ -81,14 +81,19 @@ class NowPlayingScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
+                    tooltip: 'Previous Surah',
+                    icon: const Icon(Icons.skip_previous_rounded),
+                    onPressed: state.surahNumber! > 1 ? () => playback.skipToSurah(state.surahNumber! - 1) : null,
+                  ),
+                  IconButton(
                     iconSize: 32,
                     tooltip: 'Previous ayah',
-                    icon: const Icon(Icons.skip_previous_rounded),
+                    icon: const Icon(Icons.navigate_before_rounded),
                     onPressed: state.currentAyahIndex > 0
                         ? () => playback.seekToAyahIndex(state.currentAyahIndex - 1)
                         : null,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Container(
                     width: 60,
                     height: 60,
@@ -104,18 +109,35 @@ class NowPlayingScreen extends StatelessWidget {
                       onPressed: playback.togglePlayPause,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   IconButton(
                     iconSize: 32,
                     tooltip: 'Next ayah',
-                    icon: const Icon(Icons.skip_next_rounded),
+                    icon: const Icon(Icons.navigate_next_rounded),
                     onPressed: state.currentAyahIndex < state.ayahCount - 1
                         ? () => playback.seekToAyahIndex(state.currentAyahIndex + 1)
                         : null,
                   ),
+                  IconButton(
+                    tooltip: 'Next Surah',
+                    icon: const Icon(Icons.skip_next_rounded),
+                    onPressed: state.surahNumber! < 114 ? () => playback.skipToSurah(state.surahNumber! + 1) : null,
+                  ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => playback.setLoopCurrentAyah(!playback.loopCurrentAyah),
+                icon: Icon(
+                  Icons.repeat_one_rounded,
+                  size: 18,
+                  color: playback.loopCurrentAyah ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                ),
+                label: Text(
+                  'Repeat this ayah',
+                  style: TextStyle(color: playback.loopCurrentAyah ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                ),
+              ),
               TextButton(
                 onPressed: playback.stopSurah,
                 child: Text('Stop listening', style: TextStyle(color: colorScheme.onSurfaceVariant)),

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -219,7 +221,13 @@ class _MonthGrid extends StatelessWidget {
         final isFuture = date.isAfter(today);
         final wasRead = !isFuture && appState.wasReadOnDate(date);
         if (wasRead) daysReadThisMonth++;
-        return (day: dayNumber, isFuture: isFuture, isToday: date == today, wasRead: wasRead);
+        return (
+          day: dayNumber,
+          isFuture: isFuture,
+          isToday: date == today,
+          wasRead: wasRead,
+          outcome: isFuture ? null : appState.dayOutcome(date),
+        );
       });
     });
 
@@ -253,6 +261,7 @@ class _MonthGrid extends StatelessWidget {
                           filled: cell.wasRead,
                           isToday: cell.isToday,
                           isFuture: cell.isFuture,
+                          outcome: cell.outcome,
                           joinsLeft: joinsLeft,
                           joinsRight: joinsRight,
                         ),
@@ -278,6 +287,7 @@ class _DayCell extends StatelessWidget {
   final bool filled;
   final bool isToday;
   final bool isFuture;
+  final DayOutcome? outcome;
   final bool joinsLeft;
   final bool joinsRight;
 
@@ -286,6 +296,7 @@ class _DayCell extends StatelessWidget {
     required this.filled,
     required this.isToday,
     required this.isFuture,
+    required this.outcome,
     required this.joinsLeft,
     required this.joinsRight,
   });
@@ -314,33 +325,99 @@ class _DayCell extends StatelessWidget {
       );
     }
 
+    // A grace-forgiven miss gets a dashed ring in the streak's own color -
+    // it still counts, so it borrows the streak's color rather than reading
+    // as a plain gap. A hard miss gets a solid error-tinted ring and a faint
+    // fill, so the two unread states are told apart by more than memory.
+    final Color borderColor;
+    final double borderWidth;
+    final Color? fillColor;
+    if (isToday) {
+      borderColor = colorScheme.primary;
+      borderWidth = 2;
+      fillColor = null;
+    } else if (outcome == DayOutcome.graceForgiven) {
+      borderColor = colorScheme.primary;
+      borderWidth = 1.5;
+      fillColor = colorScheme.primary.withValues(alpha: 0.08);
+    } else if (outcome == DayOutcome.missed) {
+      borderColor = colorScheme.error;
+      borderWidth = 1.5;
+      fillColor = colorScheme.error.withValues(alpha: 0.08);
+    } else {
+      borderColor = isFuture ? colorScheme.outlineVariant.withValues(alpha: 0.5) : colorScheme.outlineVariant;
+      borderWidth = 1;
+      fillColor = null;
+    }
+
     return Center(
       child: Container(
         width: _height,
         height: _height,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(
-            color: isToday
-                ? colorScheme.primary
-                : isFuture
-                    ? colorScheme.outlineVariant.withValues(alpha: 0.5)
-                    : colorScheme.outlineVariant,
-            width: isToday ? 2 : 1,
-          ),
+          color: fillColor,
+          border: outcome == DayOutcome.graceForgiven
+              ? null
+              : Border.all(color: borderColor, width: borderWidth),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          '$day',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-            color: isFuture ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4) : colorScheme.onSurfaceVariant,
+        // No `alignment` here deliberately - it would loosen the constraints
+        // passed to the CustomPaint child below, so it'd size to its Text
+        // instead of filling this 36x36 box, and the dashed ring would be
+        // painted far too small.
+        child: CustomPaint(
+          painter: outcome == DayOutcome.graceForgiven
+              ? _DashedCirclePainter(color: borderColor, strokeWidth: borderWidth)
+              : null,
+          child: Center(
+            child: Text(
+              '$day',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                color: isFuture ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4) : colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// A dashed ring, since Flutter's [Border] has no dashed style built in -
+/// used for a grace-forgiven day, to read as distinct from both a solid
+/// missed-day ring and a plain untracked one at a glance, with no text.
+class _DashedCirclePainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+
+  const _DashedCirclePainter({required this.color, required this.strokeWidth});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final radius = (size.shortestSide - strokeWidth) / 2;
+    final center = size.center(Offset.zero);
+    final circumference = 2 * pi * radius;
+    const dashLength = 4.0;
+    const gapLength = 3.0;
+    final dashCount = (circumference / (dashLength + gapLength)).floor();
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    for (var i = 0; i < dashCount; i++) {
+      final startAngle = (i * (dashLength + gapLength) / circumference) * 2 * pi;
+      final sweepAngle = (dashLength / circumference) * 2 * pi;
+      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweepAngle, false, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedCirclePainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
 }
 
 /// Bottom sheet for jumping straight to a month/year, instead of paging one

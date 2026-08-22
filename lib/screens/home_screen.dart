@@ -88,7 +88,15 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        title: const Text('wird.', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+        title: Text.rich(
+          TextSpan(
+            style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2),
+            children: [
+              const TextSpan(text: 'wird'),
+              TextSpan(text: '.', style: TextStyle(color: colorScheme.primary)),
+            ],
+          ),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -146,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 key: widget.continueReadingKey,
                 child: _ContinueReadingCard(
                   bookmarkName: bookmark.name,
+                  transliteratedName: resumeSurah.name,
                   surahName: resumeSurah.englishName,
                   surahNumber: resumeSurah.number,
                   ayahNumber: bookmark.ayahNumber,
@@ -255,6 +264,7 @@ class _WeekStreakStrip extends StatelessWidget {
 
 class _ContinueReadingCard extends StatelessWidget {
   final String bookmarkName;
+  final String transliteratedName;
   final String surahName;
   final int surahNumber;
   final int ayahNumber;
@@ -263,6 +273,7 @@ class _ContinueReadingCard extends StatelessWidget {
 
   const _ContinueReadingCard({
     required this.bookmarkName,
+    required this.transliteratedName,
     required this.surahName,
     required this.surahNumber,
     required this.ayahNumber,
@@ -289,8 +300,18 @@ class _ContinueReadingCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '$surahNumber $surahName · $ayahNumber/$ayahCount',
+            'Surah $transliteratedName',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$surahNumber · $surahName',
+            style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isNewUser ? 'Ayah 1 of $ayahCount' : 'Last read: Ayah $ayahNumber',
+            style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 16),
           SizedBox(

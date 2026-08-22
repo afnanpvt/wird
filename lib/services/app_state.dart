@@ -11,9 +11,11 @@ import 'playback_service.dart';
 import 'progress_service.dart';
 import 'quran_repository.dart';
 import 'settings_service.dart';
+import 'streak_engine.dart' show DayOutcome;
 import 'streak_service.dart';
 
 export 'settings_service.dart' show AppThemeMode;
+export 'streak_engine.dart' show DayOutcome;
 
 class AppState extends ChangeNotifier {
   final QuranRepository quran = QuranRepository();
@@ -44,6 +46,7 @@ class AppState extends ChangeNotifier {
     await quran.load(quranScript);
     await _streakService.reconcileToYesterday();
     streakState = _streakService.getState();
+    _dayOutcomesCache = null;
     await _bookmarksService.migrateLegacyPosition(_progressService.getLastPosition());
     bookmarks = _bookmarksService.getAll();
     userName = _settingsService.getName();
@@ -123,6 +126,7 @@ class AppState extends ChangeNotifier {
     final hasanat = quran.hasanatForAyah(surahNumber, ayahNumber);
     await _streakService.recordAyahRead(surahNumber, ayahNumber, hasanat);
     streakState = _streakService.getState();
+    _dayOutcomesCache = null;
     notifyListeners();
   }
 
@@ -207,6 +211,23 @@ class AppState extends ChangeNotifier {
   int get totalHasanat => _streakService.totalHasanat();
 
   bool wasReadOnDate(DateTime date) => _streakService.ayahsReadOn(date) > 0;
+
+  Map<DateTime, DayOutcome>? _dayOutcomesCache;
+
+  /// Whether [date] was a plain read day, a miss grace forgave, or a miss
+  /// that reset the streak - null for today, the future, or any day before
+  /// reading was ever tracked, none of which have a settled outcome.
+  DayOutcome? dayOutcome(DateTime date) {
+    final earliest = _streakService.earliestLoggedDate();
+    if (earliest == null) return null;
+    final day = DateTime(date.year, date.month, date.day);
+    if (day.isBefore(earliest)) return null;
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final end = DateTime(yesterday.year, yesterday.month, yesterday.day);
+    if (day.isAfter(end)) return null;
+    _dayOutcomesCache ??= _streakService.dayOutcomes(start: earliest, end: end);
+    return _dayOutcomesCache![day];
+  }
 
   Future<void> addReadingSeconds(int seconds) => _streakService.addReadingSeconds(seconds);
 

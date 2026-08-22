@@ -8,15 +8,16 @@ import '../widgets/mini_player_bar.dart';
 import 'bookmarks_screen.dart';
 import 'browse_screen.dart';
 import 'home_screen.dart';
+import 'listen_screen.dart';
 import 'settings_screen.dart';
 
-/// Persistent bottom-tab shell around the app's four top-level destinations.
+/// Persistent bottom-tab shell around the app's five top-level destinations.
 ///
 /// Replaces the earlier design where Browse, Bookmarks, and Settings were
 /// only reachable by scrolling down Home and tapping a button, or a small
 /// icon inside a card - on a short screen the Browse button in particular
 /// could sit below the fold, so a first-run reader had to be told to scroll
-/// before they could even see it. A bottom bar puts all four destinations on
+/// before they could even see it. A bottom bar puts all five destinations on
 /// screen, always, on every screen.
 ///
 /// Each tab is a genuine [IndexedStack] entry, not something pushed onto the
@@ -81,6 +82,7 @@ class _RootScreenState extends State<RootScreen> {
         children: [
           HomeScreen(continueReadingKey: _continueReadingKey),
           const BrowseScreen(),
+          const ListenScreen(),
           const BookmarksScreen(),
           const SettingsScreen(),
         ],
@@ -122,6 +124,11 @@ class _RootScreenState extends State<RootScreen> {
                     icon: KeyedSubtree(key: _browseTabKey, child: const Icon(Icons.explore_outlined)),
                     selectedIcon: const Icon(Icons.explore_rounded),
                     label: 'Browse',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.headphones_outlined),
+                    selectedIcon: Icon(Icons.headphones_rounded),
+                    label: 'Listen',
                   ),
                   const NavigationDestination(
                     icon: Icon(Icons.bookmark_outline_rounded),

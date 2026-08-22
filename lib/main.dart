@@ -1,6 +1,6 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/onboarding_screen.dart';
@@ -8,6 +8,7 @@ import 'screens/root_screen.dart';
 import 'services/app_state.dart';
 import 'services/hive_service.dart';
 import 'services/playback_service.dart';
+import 'services/wird_audio_handler.dart';
 import 'widgets/welcome_dialog.dart';
 
 final routeObserver = RouteObserver<PageRoute<void>>();
@@ -38,16 +39,28 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initHive();
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.afnan.wird.channel.audio',
-    androidNotificationChannelName: 'Surah playback',
-    androidNotificationOngoing: true,
+  // Created here, ahead of the widget tree, so the same instance can be
+  // handed to both the audio handler below and the Provider further down.
+  final playbackService = PlaybackService();
+  await AudioService.init(
+    builder: () => WirdAudioHandler(playbackService),
+    config: const AudioServiceConfig(
+      androidNotificationChannelId: 'com.afnan.wird.channel.audio',
+      androidNotificationChannelName: 'Surah playback',
+      androidNotificationOngoing: true,
+      // The default 'mipmap/ic_launcher' is the full-color app icon on an
+      // opaque background - Android tints every non-transparent pixel of a
+      // notification's small icon white, which turns a filled square into a
+      // blank one. The adaptive icon's foreground layer is already a mark on
+      // a transparent background, so it tints into a real silhouette instead.
+      androidNotificationIcon: 'drawable/ic_launcher_foreground',
+    ),
   );
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppState()),
-        ChangeNotifierProvider(create: (_) => PlaybackService()),
+        ChangeNotifierProvider.value(value: playbackService),
       ],
       child: const WirdApp(),
     ),

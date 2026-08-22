@@ -110,7 +110,15 @@ class _NameStep extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('wird.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: colorScheme.primary)),
+                Text.rich(
+                  TextSpan(
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+                    children: [
+                      const TextSpan(text: 'wird'),
+                      TextSpan(text: '.', style: TextStyle(color: colorScheme.primary)),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 20),
                 const Text("What should we call you?", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, height: 1.2)),
                 const SizedBox(height: 8),

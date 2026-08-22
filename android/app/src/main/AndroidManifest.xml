@@ -5,10 +5,10 @@
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:fullBackupContent="false">
-        <!-- just_audio_background: keeps continuous Surah playback running
-             with lock-screen/notification controls while the app is
-             backgrounded, instead of stopping like the single-verse audio
-             on the reading screen does. -->
+        <!-- audio_service (registered from Dart via WirdAudioHandler): keeps
+             continuous Surah playback running with lock-screen/notification
+             controls while the app is backgrounded, instead of stopping
+             like the single-verse audio on the reading screen does. -->
         <service android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="true" tools:ignore="Instantiatable">
@@ -56,7 +56,7 @@
          recitation audio from everyayah.com (see lib/models/reciter.dart).
          Nothing is fetched unless the reader explicitly taps play. -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Required by just_audio_background to keep Surah playback alive as a
+    <!-- Required by audio_service to keep Surah playback alive as a
          foreground service with a persistent notification while the app is
          backgrounded or the screen is locked. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>

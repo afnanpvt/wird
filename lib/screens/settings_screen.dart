@@ -127,6 +127,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
               Text('built by afnan', style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 16),
+              // Attribution for bundled third-party text/fonts/audio - the
+              // IndoPak font's own licence asks for a courtesy credit
+              // somewhere users can find it, which is here.
+              Text(
+                'Quran text: QuranWBW IndoPak and Tanzil Uthmani.\n'
+                'Arabic type: Amiri, AlQuran IndoPak by QuranWBW.\n'
+                'Recitation: everyayah.com.',
+                style: TextStyle(fontSize: 11.5, height: 1.6, color: colorScheme.onSurfaceVariant),
+              ),
             ],
           ),
           const SizedBox(height: 20),

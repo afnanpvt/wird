@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:provider/provider.dart';
 
 import '../main.dart';
@@ -93,6 +94,24 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
 
   int get _pageCount => _ayahs.length;
   bool get _isTracking => _trackingBookmarkId != null;
+
+  bool get _hasNextSurah => widget.initialSurahNumber < 114;
+
+  /// One extra trailing page past the last ayah - the surah-completion end
+  /// card - whenever a next surah exists to slide into. It's what lets a
+  /// plain swipe continue where the forward arrow already could, instead of
+  /// hitting a wall at the last ayah.
+  int get _itemCount => _pageCount + (_hasNextSurah ? 1 : 0);
+
+  /// Guards the celebrate-then-advance sequence (arrow tap from the last
+  /// ayah, or landing on the end card by swipe) so double taps and repeated
+  /// landings can't queue two pushes of the next surah.
+  bool _advancing = false;
+
+  /// The content under every chrome (title, favorite, stats), clamped - when
+  /// the reader is parked on the trailing end card there is no current ayah,
+  /// and everything should keep describing the last real one.
+  Ayah get _currentOrLastContent => _contentAt(min(_currentIndex, _pageCount - 1));
 
   @override
   void initState() {
@@ -264,7 +283,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
 
   Future<void> _showSaveBookmarkSheet() async {
     final appState = context.read<AppState>();
-    final content = _contentAt(_currentIndex);
+    final content = _currentOrLastContent;
     final surah = appState.quran.surahByNumber(content.surahNumber);
     final resultId = await showModalBottomSheet<String>(
       context: context,
@@ -290,7 +309,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
       _stopTicker();
       _stopAudio();
       if (_trackingBookmarkId != null) {
-        final content = _contentAt(_currentIndex);
+        final content = _currentOrLastContent;
         context.read<AppState>().updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
       }
     } else if (state == AppLifecycleState.resumed) {
@@ -305,9 +324,21 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     // reader actually moved through it, so that's the one that gets credit
     // here, not the one just arrived at.
     final leftIndex = _currentIndex;
+    final leftWasAyah = leftIndex < _pageCount;
     setState(() => _currentIndex = index);
+    if (!leftWasAyah) return;
     _sessionAyahCount++;
     _creditAyahRead(leftIndex);
+    if (index >= _pageCount) {
+      // Swiped past the last ayah onto the completion end card: the same
+      // celebrate-then-slide-into-the-next-surah moment the forward arrow
+      // triggers, just arrived at by swipe. The longer dwell lets the end
+      // card and its confetti actually register before the transition.
+      _stopAudio();
+      HapticFeedback.mediumImpact();
+      _celebrateAndAdvance(const Duration(milliseconds: 1400));
+      return;
+    }
     _updateBookmarkPosition(index);
     // Single-verse playback only (no auto-continue) - moving to a different
     // ayah, however that happens, ends whatever was playing.
@@ -316,6 +347,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     final juzNumber = context.read<AppState>().quran.juzProgressFor(content.surahNumber, content.ayahNumber).juzNumber;
     if (juzNumber > _lastJuzNumber) {
       _lastJuzNumber = juzNumber;
+      HapticFeedback.selectionClick();
       _confettiController.play();
     }
   }
@@ -333,6 +365,30 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     );
   }
 
+  /// Confetti burst, a short dwell, then slide into the next surah. Shared by
+  /// the forward arrow (tapped on the last ayah) and the swipe-driven end
+  /// card, so both entry points feel like the exact same moment. [_advancing]
+  /// makes it idempotent against double taps or re-triggering mid-flight.
+  void _celebrateAndAdvance(Duration dwell) {
+    if (_advancing || !_hasNextSurah) return;
+    _advancing = true;
+    _confettiController.play();
+    // Let the burst actually be seen before the slide transition covers it.
+    Future.delayed(dwell, () async {
+      if (!mounted) return;
+      await Navigator.of(context).push(_surahTransitionRoute(
+        ReadingScreen(
+          initialSurahNumber: widget.initialSurahNumber + 1,
+          initialAyahNumber: 1,
+          updatesContinuePoint: _isTracking,
+          trackingBookmarkId: _trackingBookmarkId,
+        ),
+      ));
+      // Back-navigation lands here again; allow celebrating onward once more.
+      if (mounted) _advancing = false;
+    });
+  }
+
   void _goBack() {
     _pageController.previousPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
   }
@@ -342,21 +398,10 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
       _pageController.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
       return;
     }
-    if (widget.initialSurahNumber < 114) {
-      _confettiController.play();
-      // Let the burst actually be seen before the slide transition covers it.
-      Future.delayed(const Duration(milliseconds: 700), () {
-        if (!mounted) return;
-        Navigator.of(context).push(_surahTransitionRoute(
-          ReadingScreen(
-            initialSurahNumber: widget.initialSurahNumber + 1,
-            initialAyahNumber: 1,
-            updatesContinuePoint: _isTracking,
-            trackingBookmarkId: _trackingBookmarkId,
-          ),
-        ));
-      });
-    }
+    // Already parked on the end card, or an advance is in flight.
+    if (_currentIndex >= _pageCount || _advancing) return;
+    HapticFeedback.mediumImpact();
+    _celebrateAndAdvance(const Duration(milliseconds: 700));
   }
 
   /// Matches the PageView's own horizontal slide instead of the platform's
@@ -379,7 +424,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
 
   Future<void> _toggleFavorite() async {
     final appState = context.read<AppState>();
-    final content = _contentAt(_currentIndex);
+    final content = _currentOrLastContent;
     await appState.toggleFavorite(content.surahNumber, content.ayahNumber);
     if (mounted) setState(() {});
   }
@@ -415,14 +460,14 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   Widget build(BuildContext context) {
     final appState = context.read<AppState>();
     final surah = appState.quran.surahByNumber(widget.initialSurahNumber);
-    final content = _contentAt(_currentIndex);
+    final content = _currentOrLastContent;
     final juzProgress = appState.quran.juzProgressFor(content.surahNumber, content.ayahNumber);
 
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
         title: Text(
-          '${surah.englishName} · ${_ayahNumberForDisplay(_currentIndex)}/${_ayahs.length}',
+          '${surah.englishName} · ${_ayahNumberForDisplay(min(_currentIndex, _pageCount - 1))}/${_ayahs.length}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         actions: [
@@ -488,7 +533,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
                   children: [
                     PageView.builder(
                       controller: _pageController,
-                      itemCount: _pageCount,
+                      itemCount: _itemCount,
                       pageSnapping: false,
                       physics: const QuickPageScrollPhysics(),
                       onPageChanged: _onPageChanged,
@@ -496,12 +541,24 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
                       // the neighbouring pages are alive during a swipe -
                       // isolating them keeps a repaint on one page from
                       // re-rasterising the others.
-                      itemBuilder: (context, index) => RepaintBoundary(
-                        child: _AyahPage(
-                          ayah: _contentAt(index),
-                          bismillahText: _showsBismillah(index) ? _bismillahText : null,
-                        ),
-                      ),
+                      itemBuilder: (context, index) {
+                        if (index >= _pageCount) {
+                          final next = appState.quran.surahByNumber(widget.initialSurahNumber + 1);
+                          return RepaintBoundary(
+                            child: _SurahEndCard(
+                              completedName: surah.englishName,
+                              nextName: next.englishName,
+                              nextAyahCount: next.ayahCount,
+                            ),
+                          );
+                        }
+                        return RepaintBoundary(
+                          child: _AyahPage(
+                            ayah: _contentAt(index),
+                            bismillahText: _showsBismillah(index) ? _bismillahText : null,
+                          ),
+                        );
+                      },
                     ),
                     // Tap zones over the outer edges only, so the centered
                     // translation-toggle button in _AyahPage stays reachable.
@@ -820,6 +877,70 @@ class _AyahPage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// The page past the last ayah: a quiet full-screen "you finished this
+/// surah" beat that swiping lands on before sliding into the next surah.
+/// It exists so a swipe meets the same celebration the forward arrow gives -
+/// typography-led per the app's brand, no decoration doing the talking - and
+/// its entrance animation plays exactly once, on arrival.
+class _SurahEndCard extends StatelessWidget {
+  final String completedName;
+  final String nextName;
+  final int nextAyahCount;
+
+  const _SurahEndCard({
+    required this.completedName,
+    required this.nextName,
+    required this.nextAyahCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOut,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(offset: Offset(0, 18 * (1 - t)), child: child),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'SURAH COMPLETE',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 2.4,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            completedName,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.arrow_forward_rounded, size: 15, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(
+                'Up next · $nextName · $nextAyahCount verses',
+                style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

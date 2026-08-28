@@ -18,7 +18,7 @@ if this feels inspired by the gamified habit apps you already know, it is. i jus
 
 ## get it
 
-**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird-1.6.0.apk)**
+**[↓ download the apk](https://github.com/afnanpvt/wird/releases/latest/download/wird.apk)**
 tap it, it downloads right away, no page in between.
 
 **or, for auto-updates: f-droid**
@@ -26,15 +26,15 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.6.0
+## what's new in 1.7.1
 
-- **listen to a whole surah**, not just one verse at a time: tap the play icon next to any surah in browse to start continuous recitation, ayah after ayah, that keeps playing in the background with real lock-screen and notification controls
-- **four reciters** to choose from in settings: yasser al-dosari (now the default), abdul rahman al-sudais, mahmoud khalil al-husary, and abdul basit. mishary alafasy has been retired
-- browse's surah and juz tabs now point at each other: every surah shows which juz it falls in, every juz shows which surah it starts in, and tapping the juz label while reading jumps straight to that juz's start
-- a persistent bottom bar (home, browse, bookmarks, settings) replaces the old scroll-down-and-tap navigation
-- fixed uneven spacing in browse's surah list
+- **seamless surah transitions**: swipe past the last ayah of any surah to celebrate with confetti and jump straight into reading the next surah
+- **ambient listening mode**: Now Playing screen now features dynamic ambient artwork glows, subtle background scrims, and surah loop toggles
+- **dedicated listen tab**: tap any surah or juz card to start playback instantly
+- **enhanced notification & lock-screen player**: surah titles and skip controls integrated directly into Android media cards with high-contrast custom cover art
+- **streak calendar clarity**: distinct visual rings per day differentiating grace-forgiven misses from hard-reset misses
 
-and from 1.5.0: recitation audio for a single verse (the feature the above builds on), a fixed session timer that was opening already showing hours of your all-time total, a streak calendar that no longer bobs between months, and an end-of-session summary that matches the home screen's stat styling.
+and from 1.6.0: continuous surah playback, reciter selection (Yasser Al-Dosari, Sudais, Husary, Abdul Basit), and cross-navigation between surah and juz tabs.
 
 ## what it actually does
 

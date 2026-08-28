@@ -596,8 +596,10 @@ class _FridayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = context.read<AppState>();
+    final appState = context.watch<AppState>();
     final surah = appState.quran.surahByNumber(18);
+    final initialAyah = appState.kahfAyahNumber;
+    final isResuming = initialAyah > 1;
 
     return Material(
       color: Colors.transparent,
@@ -606,10 +608,17 @@ class _FridayCard extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => const ReadingScreen(
+            builder: (_) => ReadingScreen(
               initialSurahNumber: 18,
-              initialAyahNumber: 1,
+              initialAyahNumber: initialAyah,
               updatesContinuePoint: false,
+              onPositionChanged: (surahNum, ayahNum) {
+                if (surahNum == 18) {
+                  context.read<AppState>().updateKahfPosition(ayahNum);
+                } else {
+                  context.read<AppState>().updateKahfPosition(1);
+                }
+              },
             ),
           ),
         ),
@@ -653,7 +662,9 @@ class _FridayCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          '18 ${surah.englishName}',
+                          isResuming
+                              ? '18 ${surah.englishName} · Resume Ayah $initialAyah of 110'
+                              : '18 ${surah.englishName}',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
                         ),
                       ),

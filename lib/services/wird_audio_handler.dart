@@ -69,7 +69,14 @@ class WirdAudioHandler extends BaseAudioHandler {
 
     playbackState.add(playbackState.value.copyWith(
       controls: controls,
-      systemActions: const {MediaAction.seek},
+      systemActions: {
+        MediaAction.seek,
+        MediaAction.play,
+        MediaAction.pause,
+        MediaAction.playPause,
+        if (hasPrevious) MediaAction.skipToPrevious,
+        if (hasNext) MediaAction.skipToNext,
+      },
       androidCompactActionIndices: List.generate(controls.length, (i) => i),
       processingState: const {
         ProcessingState.idle: AudioProcessingState.idle,

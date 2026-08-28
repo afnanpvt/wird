@@ -53,12 +53,16 @@ class ReadingScreen extends StatefulWidget {
   /// default bookmark's id, or no tracking at all.
   final String? trackingBookmarkId;
 
+  /// Optional position change callback.
+  final void Function(int surahNumber, int ayahNumber)? onPositionChanged;
+
   const ReadingScreen({
     super.key,
     required this.initialSurahNumber,
     required this.initialAyahNumber,
     this.updatesContinuePoint = true,
     this.trackingBookmarkId,
+    this.onPositionChanged,
   });
 
   @override
@@ -239,9 +243,12 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   /// is just "where to resume from", not a claim they've read this ayah, so
   /// it runs on arrival at every ayah including the very first one.
   void _updateBookmarkPosition(int index) {
-    if (_trackingBookmarkId == null) return;
+    if (index >= _pageCount) return;
     final content = _contentAt(index);
-    context.read<AppState>().updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
+    if (_trackingBookmarkId != null) {
+      context.read<AppState>().updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
+    }
+    widget.onPositionChanged?.call(content.surahNumber, content.ayahNumber);
   }
 
   /// Credits an ayah as read - streak, hasanat, the lot. Only called once
@@ -308,9 +315,12 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       _stopTicker();
       _stopAudio();
-      if (_trackingBookmarkId != null) {
+      if (_trackingBookmarkId != null || widget.onPositionChanged != null) {
         final content = _currentOrLastContent;
-        context.read<AppState>().updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
+        if (_trackingBookmarkId != null) {
+          context.read<AppState>().updateBookmarkPosition(_trackingBookmarkId!, content.surahNumber, content.ayahNumber);
+        }
+        widget.onPositionChanged?.call(content.surahNumber, content.ayahNumber);
       }
     } else if (state == AppLifecycleState.resumed) {
       if ((ModalRoute.of(context) as PageRoute<void>?)?.isCurrent ?? false) {
@@ -382,6 +392,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
           initialAyahNumber: 1,
           updatesContinuePoint: _isTracking,
           trackingBookmarkId: _trackingBookmarkId,
+          onPositionChanged: widget.onPositionChanged,
         ),
       ));
       // Back-navigation lands here again; allow celebrating onward once more.

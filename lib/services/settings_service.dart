@@ -68,4 +68,8 @@ class SettingsService {
   }
 
   Future<void> saveReciter(Reciter reciter) => _box.put('reciter', reciter.name);
+
+  int getKahfAyahNumber() => _box.get('kahfAyahNumber') as int? ?? 1;
+
+  Future<void> saveKahfAyahNumber(int ayahNumber) => _box.put('kahfAyahNumber', ayahNumber);
 }

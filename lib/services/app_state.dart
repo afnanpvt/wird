@@ -37,6 +37,7 @@ class AppState extends ChangeNotifier {
   double fontScale = 1.0;
   bool showTranslation = true;
   bool showTransliteration = false;
+  int kahfAyahNumber = 1;
 
   Bookmark get defaultBookmark => bookmarks.firstWhere((b) => b.isDefault, orElse: () => bookmarks.first);
 
@@ -56,6 +57,7 @@ class AppState extends ChangeNotifier {
     showTranslation = _settingsService.getShowTranslation();
     showTransliteration = _settingsService.getShowTransliteration();
     favorites = _favoritesService.getAll();
+    kahfAyahNumber = _settingsService.getKahfAyahNumber();
     isLoaded = true;
     notifyListeners();
   }
@@ -262,6 +264,17 @@ class AppState extends ChangeNotifier {
       await _favoritesService.add(surahNumber, ayahNumber);
     }
     favorites = _favoritesService.getAll();
+    notifyListeners();
+  }
+
+  Future<void> updateKahfPosition(int ayahNumber) async {
+    if (ayahNumber < 1) ayahNumber = 1;
+    if (ayahNumber >= 110) {
+      kahfAyahNumber = 1;
+    } else {
+      kahfAyahNumber = ayahNumber;
+    }
+    await _settingsService.saveKahfAyahNumber(kahfAyahNumber);
     notifyListeners();
   }
 }

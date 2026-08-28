@@ -47,12 +47,6 @@ Future<void> main() async {
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.afnan.wird.channel.audio',
       androidNotificationChannelName: 'Surah playback',
-      androidNotificationOngoing: true,
-      // The default 'mipmap/ic_launcher' is the full-color app icon on an
-      // opaque background - Android tints every non-transparent pixel of a
-      // notification's small icon white, which turns a filled square into a
-      // blank one. The adaptive icon's foreground layer is already a mark on
-      // a transparent background, so it tints into a real silhouette instead.
       androidNotificationIcon: 'drawable/ic_launcher_foreground',
     ),
   );

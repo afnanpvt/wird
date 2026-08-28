@@ -58,14 +58,35 @@ class WirdAudioHandler extends BaseAudioHandler {
   void _broadcastPlaybackState() {
     final player = _playback.player;
     final surah = _playback.surahState;
-    final hasPrevious = surah.isActive && surah.surahNumber! > 1;
-    final hasNext = surah.isActive && surah.surahNumber! < 114;
+    final verse = _playback.verseState.value;
+    final isSurah = surah.isActive;
+    final isVerse = verse.status != VerseAudioStatus.idle && verse.surahNumber != null;
+
+    final hasPrevious = isSurah && surah.surahNumber! > 1;
+    final hasNext = isSurah && surah.surahNumber! < 114;
 
     final controls = [
       if (hasPrevious) MediaControl.skipToPrevious,
       if (player.playing) MediaControl.pause else MediaControl.play,
       if (hasNext) MediaControl.skipToNext,
     ];
+
+    AudioProcessingState processingState;
+    if (player.processingState == ProcessingState.idle) {
+      if (isSurah || isVerse) {
+        processingState = AudioProcessingState.ready;
+      } else {
+        processingState = AudioProcessingState.idle;
+      }
+    } else {
+      processingState = const {
+        ProcessingState.idle: AudioProcessingState.idle,
+        ProcessingState.loading: AudioProcessingState.loading,
+        ProcessingState.buffering: AudioProcessingState.buffering,
+        ProcessingState.ready: AudioProcessingState.ready,
+        ProcessingState.completed: AudioProcessingState.completed,
+      }[player.processingState]!;
+    }
 
     playbackState.add(playbackState.value.copyWith(
       controls: controls,
@@ -74,17 +95,12 @@ class WirdAudioHandler extends BaseAudioHandler {
         MediaAction.play,
         MediaAction.pause,
         MediaAction.playPause,
+        MediaAction.stop,
         if (hasPrevious) MediaAction.skipToPrevious,
         if (hasNext) MediaAction.skipToNext,
       },
       androidCompactActionIndices: List.generate(controls.length, (i) => i),
-      processingState: const {
-        ProcessingState.idle: AudioProcessingState.idle,
-        ProcessingState.loading: AudioProcessingState.loading,
-        ProcessingState.buffering: AudioProcessingState.buffering,
-        ProcessingState.ready: AudioProcessingState.ready,
-        ProcessingState.completed: AudioProcessingState.completed,
-      }[player.processingState]!,
+      processingState: processingState,
       playing: player.playing,
       updatePosition: player.position,
       speed: player.speed,

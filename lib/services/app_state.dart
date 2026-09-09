@@ -132,6 +132,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool isAyahRead(int surahNumber, int ayahNumber) => _streakService.isAyahRead(surahNumber, ayahNumber);
+
   Future<void> updateBookmarkPosition(String bookmarkId, int surahNumber, int ayahNumber) async {
     await _bookmarksService.updatePosition(bookmarkId, surahNumber, ayahNumber);
     bookmarks = _bookmarksService.getAll();

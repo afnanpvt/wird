@@ -13,9 +13,9 @@ social layer where users can:
 2. Get a gentle nudge notification when a friend reads Qur'an, encouraging
    them to read too.
 
-This must be entirely opt-in (a single global setting, off by default) so
-the app's core offline experience is unaffected for anyone who doesn't want
-it.
+This must be entirely opt-in so the app's core offline experience is
+unaffected for anyone who doesn't want it — see *Feature entry point*
+below for how opt-in works without a master switch.
 
 ## Non-goals
 
@@ -57,25 +57,62 @@ through this design:
    a client-side background check + local notification (see *Notification
    flow* below) — not instant, but fully free and serverless.
 
-## Feature toggle
+## Feature entry point (revised — no master on/off)
 
-- **Settings → "Friends" toggle, OFF by default.**
-- Turning **ON**:
-  - Provisions a Firebase Auth anonymous account for the device (no
-    email/password/sign-in flow required).
-  - Creates a `users/{uid}` profile with a generated username and a
-    shareable friend code.
-  - Reveals the Friends UI (friends list, add-friend, leaderboard).
-- Turning **OFF**:
-  - Sets `friendsEnabled = false` on the user's profile.
-  - Hides all Friends UI immediately.
-  - Stops sending nudges to friends and stops the user from receiving
-    nudges.
-  - **Does NOT delete cloud data.** Profile, friend links, and last-synced
-    stats remain server-side. Re-enabling instantly restores the friends
-    list and history with no re-adding required. This is a deliberate
-    choice to avoid accidental, hard-to-reverse data loss from a simple
-    settings toggle.
+There is no single "enable Friends" switch. A **"Friends" tab/section is
+always present** in the app. The first time a user opens it, a short
+one-time setup screen — pick an avatar, done — creates their profile,
+username, and friend code. That setup step *is* the opt-in: never opening
+the tab means never provisioning any cloud account, so the zero-footprint
+default is preserved without needing an explicit switch to express it.
+
+## Profile setup
+
+- **Avatar only, no gallery upload** (explicitly out of scope for this
+  phase — see *Why no gallery photos* below). A one-time picker shows a
+  grid of **13 predefined avatars** generated via DiceBear's abstract
+  "Shapes" style ([dicebear_core](https://pub.dev/packages/dicebear_core) +
+  [dicebear_styles](https://pub.dev/packages/dicebear_styles), rendered
+  locally as SVGs from 13 fixed seed strings — no network call, no bundled
+  image assets). This style draws only abstract geometric shapes on a
+  colored background — no human figures, faces, or gendered depictions at
+  all, which sidesteps modesty/halal concerns entirely rather than trying
+  to curate "appropriate" illustrated people.
+- Username is auto-generated (as in the original design); no free-text
+  display name input is required to participate.
+
+### Why no gallery photos
+
+Showing an uploaded photo to friends means storing it somewhere friends'
+devices can fetch it from — normally Firebase Storage, a second Firebase
+product with its own free-tier ceiling, adding a second cost-risk surface
+beyond Firestore. Given the hard "$0, no billing card" constraint, gallery
+photos are dropped from this phase entirely rather than compromising on a
+smaller/base64-in-Firestore workaround. Predefined avatars only.
+
+## Privacy model (revised — no master on/off, no long settings list)
+
+Two concerns, kept deliberately separate and small:
+
+1. **Removing a friend** — a plain per-friend "unfriend" action in the
+   friends list (e.g. swipe-to-remove or a menu on their card, with a
+   confirmation step). This is just relationship management, not privacy,
+   and needs no toggle.
+2. **Visibility**, inside the Friends section, exactly **4 switches**,
+   clearly labeled, nothing else:
+   - **Online/offline** — the one broad switch. Off means invisible to all
+     friends and no nudges sent or received, without deleting any cloud
+     data (same non-destructive behavior as the original design's
+     toggle-off — friend links and stats persist for instantly resuming
+     later).
+   - **Show streak**, **Show ayahs read**, **Show hasanat** — three
+     independent switches controlling which of those three numbers friends
+     can see on the leaderboard while online. A hidden field renders as a
+     dash for friends viewing it, never a fabricated/zero value.
+
+   This intentionally replaces the original single master toggle: instead
+   of one on/off switch, "online/offline" plus 3 field switches is the
+   complete privacy surface — 4 items, not 20.
 
 ## Data model (Firestore)
 
@@ -84,7 +121,11 @@ users/{uid}
   username: string            // generated, e.g. "ahmad_k472"
   friendCode: string          // short shareable code, e.g. "WIRD-7F3K2"
   displayName: string         // from existing SettingsService.getName(), if set
-  friendsEnabled: bool
+  avatarSeed: string          // one of 13 fixed seeds for DiceBear "Shapes"
+  friendsEnabled: bool        // the online/offline switch
+  showStreak: bool            // default true
+  showAyahs: bool             // default true
+  showHasanat: bool           // default true
   createdAt: timestamp
 
 users/{uid}/friends/{friendUid}
@@ -105,6 +146,12 @@ stats/{uid}
   lastSyncedAt: timestamp
   lastActiveDate: string       // yyyy-MM-dd, the day this user last read
 ```
+
+The 3 `show*` flags live on `users/{uid}`, not `stats/{uid}`, since they're
+settings, not activity data — but the leaderboard read path joins both: a
+friend's client reads `users/{friendUid}` for the flags and `stats/{uid}`
+for the numbers, rendering a dash for any field whose flag is false rather
+than fetching/showing the real value at all.
 
 Local-only (Hive, not synced): `notifyThrottle_{friendUid} -> lastNotifiedDateShownLocally`
 tracks, per friend, the last date *this device* already showed a nudge for
@@ -174,6 +221,33 @@ the receiver's app resumes or its periodic background check runs — not
 the moment the friend finishes reading. This is the accepted cost of
 staying fully serverless and free.
 
+## Staged rollout: dev/prod build flavors
+
+Friends is new, untested, live-infrastructure-backed functionality that
+must not reach the public release while it's being validated. Rather than
+a runtime remote flag (which would still ship the feature's code and
+Firebase wiring inside the public binary, just hidden), this uses a
+**compile-time gate** so the public build never contains it at all:
+
+- Two Android Gradle product flavors, `prod` (unchanged `applicationId
+  com.afnan.wird`, current app label) and `dev` (`applicationIdSuffix
+  ".dev"` → `com.afnan.wird.dev`, labeled "Wird Dev" via a flavor
+  `resValue`) — installs as a separate app alongside the public one on the
+  same device, rather than replacing it. Implemented in
+  [`android/app/build.gradle.kts`](../../../android/app/build.gradle.kts).
+- A Dart compile-time flag, `FeatureFlags.friendsEnabled` in
+  [`lib/config/feature_flags.dart`](../../../lib/config/feature_flags.dart),
+  read from `--dart-define=FRIENDS_ENABLED=true`. All Friends UI entry
+  points and Firebase initialization are gated behind this flag.
+- Private test builds: `flutter build apk --flavor dev
+  --dart-define=FRIENDS_ENABLED=true`, sideloaded directly.
+- Public release builds: `flutter build apk --flavor prod` (flag omitted,
+  defaults false) — this is what ships to the Play Store, and it never
+  compiles the Friends feature's UI into a reachable state.
+
+This scaffolding is already implemented as of this spec revision; the
+Friends feature itself is built on top of it.
+
 ## New dependencies
 
 - `firebase_core`, `firebase_auth`, `cloud_firestore` only — no
@@ -181,6 +255,8 @@ staying fully serverless and free.
 - `flutter_local_notifications` (local notification display).
 - `workmanager` (or equivalent) for periodic background Firestore checks
   when the app isn't foregrounded.
+- `dicebear_core` + `dicebear_styles` (local, offline SVG avatar
+  generation for the predefined avatar picker — no network call).
 - Firebase project setup: `google-services.json` (Android) and Firestore
   Security Rules (no Cloud Functions to write or deploy).
 

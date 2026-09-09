@@ -331,7 +331,7 @@ class _ContinueReadingCard extends StatelessWidget {
                   ),
                 ),
               ),
-              child: Text(isNewUser ? 'Start reading' : 'Read more'),
+              child: Text(isNewUser ? 'Start reading' : 'Resume'),
             ),
           ),
         ],

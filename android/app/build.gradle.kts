@@ -58,6 +58,22 @@ android {
                 else signingConfigs.getByName("debug")
         }
     }
+
+    // "prod" is the public app (Play Store, default flavor). "dev" gets its own
+    // application ID and label so it installs alongside prod on the same
+    // device instead of replacing it - used for testing features (like
+    // Friends) that shouldn't reach the public build yet.
+    flavorDimensions += "env"
+    productFlavors {
+        create("prod") {
+            dimension = "env"
+        }
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "Wird Dev")
+        }
+    }
 }
 
 kotlin {

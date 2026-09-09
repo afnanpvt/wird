@@ -88,6 +88,13 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   final ValueNotifier<Duration> _elapsed = ValueNotifier(Duration.zero);
   Timer? _ticker;
 
+  /// Credits the ayah currently on screen if the reader just sits on it
+  /// without ever paging away - restarted on every page change (including
+  /// the opening one) and cancelled the moment they page off it, so it only
+  /// ever fires for the ayah they're actually still looking at 10s later.
+  Timer? _autoCreditTimer;
+  static const _autoCreditDelay = Duration(seconds: 10);
+
   /// Reading time is counted every second but only written to disk every
   /// [_flushEverySeconds] (and on pause/exit). Persisting each tick meant two
   /// Hive writes a second for the entire session.
@@ -145,6 +152,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     _updateBookmarkPosition(_currentIndex);
     context.read<AppState>().recordSessionStarted();
     _startTicker();
+    _restartAutoCreditTimer(_currentIndex);
 
     _playback = context.read<PlaybackService>();
   }
@@ -160,6 +168,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     WidgetsBinding.instance.removeObserver(this);
     routeObserver.unsubscribe(this);
     _ticker?.cancel();
+    _autoCreditTimer?.cancel();
     _flushReadingSeconds();
     _pageController.dispose();
     _confettiController.dispose();
@@ -251,16 +260,29 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     widget.onPositionChanged?.call(content.surahNumber, content.ayahNumber);
   }
 
-  /// Credits an ayah as read - streak, hasanat, the lot. Only called once
-  /// the reader has paged past it (see [_onPageChanged]), never for the
-  /// ayah merely on screen: opening straight to an ayah and immediately
-  /// backing out or hitting "I'm done" without ever paging is not reading
-  /// it, and shouldn't be counted as if it were.
+  /// Credits an ayah as read - streak, hasanat, the lot. Reached either by
+  /// paging past it (see [_onPageChanged]) or, if the reader just sits on it,
+  /// by [_restartAutoCreditTimer]'s dwell timer - so it guards against
+  /// crediting the same ayah twice regardless of which path gets there first.
   void _creditAyahRead(int index) {
     final content = _contentAt(index);
     final appState = context.read<AppState>();
+    if (appState.isAyahRead(content.surahNumber, content.ayahNumber)) return;
     appState.recordAyahRead(content.surahNumber, content.ayahNumber);
     _sessionHasanat += appState.quran.hasanatForAyah(content.surahNumber, content.ayahNumber);
+  }
+
+  /// Restarts the dwell timer for whichever ayah is now on screen. If the
+  /// reader is still sitting on it 10s later - never having paged away, so
+  /// the page-past path in [_onPageChanged] never ran for it - this credits
+  /// it instead.
+  void _restartAutoCreditTimer(int index) {
+    _autoCreditTimer?.cancel();
+    if (index >= _pageCount) return;
+    _autoCreditTimer = Timer(_autoCreditDelay, () {
+      if (!mounted || _currentIndex != index) return;
+      _creditAyahRead(index);
+    });
   }
 
   void _stopAudio() => _playback.stopVerse();
@@ -336,6 +358,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     final leftIndex = _currentIndex;
     final leftWasAyah = leftIndex < _pageCount;
     setState(() => _currentIndex = index);
+    _restartAutoCreditTimer(index);
     if (!leftWasAyah) return;
     _sessionAyahCount++;
     _creditAyahRead(leftIndex);

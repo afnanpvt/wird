@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "327002593542",
+    "project_id": "wird-dev",
+    "storage_bucket": "wird-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:327002593542:android:8fe02ae2a777b952b36687",
+        "android_client_info": {
+          "package_name": "com.afnan.wird"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6zrM7Zs9eZ4_pgXwEZ1X-k1HJHP38Ev0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:327002593542:android:17bc43cee3f10beeb36687",
+        "android_client_info": {
+          "package_name": "com.afnan.wird.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6zrM7Zs9eZ4_pgXwEZ1X-k1HJHP38Ev0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

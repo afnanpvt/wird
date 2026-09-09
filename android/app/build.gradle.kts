@@ -3,9 +3,22 @@ import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// The plugin needs a src/{flavor}/google-services.json for every flavor
+// it's applied to, or it hard-fails that flavor's build. src/prod/ and
+// src/dev/ each hold an identical copy containing both flavors' client
+// entries (com.afnan.wird and com.afnan.wird.dev, both registered under
+// the wird-dev Firebase project) - the plugin picks whichever entry
+// matches the variant actually being built. Prod's entry is never
+// exercised at runtime (FeatureFlags.friendsEnabled compiles to false
+// there - see lib/config/feature_flags.dart, so Firebase.initializeApp()
+// never runs in prod); it exists purely to satisfy this plugin's check.
 
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()

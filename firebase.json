@@ -1,6 +1,1 @@
-{
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  }
-}
+{"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"wird-dev","appId":"1:327002593542:android:17bc43cee3f10beeb36687","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"wird-dev","configurations":{"android":"1:327002593542:android:17bc43cee3f10beeb36687"}}}}}}

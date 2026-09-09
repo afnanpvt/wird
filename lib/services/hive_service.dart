@@ -10,6 +10,7 @@ class HiveBoxes {
   static const favoriteAyahs = 'favoriteAyahs';
   static const bookmarks = 'bookmarks';
   static const dailyHasanat = 'dailyHasanat';
+  static const friendNudgeThrottle = 'friendNudgeThrottle';
 }
 
 Future<void> initHive() async {
@@ -23,4 +24,5 @@ Future<void> initHive() async {
   await Hive.openBox(HiveBoxes.favoriteAyahs);
   await Hive.openBox(HiveBoxes.bookmarks);
   await Hive.openBox(HiveBoxes.dailyHasanat);
+  await Hive.openBox(HiveBoxes.friendNudgeThrottle);
 }

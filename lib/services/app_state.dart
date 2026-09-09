@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../config/feature_flags.dart';
 import '../models/bookmark.dart';
 import '../models/favorite_ayah.dart';
 import '../models/quran_script.dart';
@@ -7,6 +10,7 @@ import '../models/reciter.dart';
 import '../models/streak_state.dart';
 import 'bookmarks_service.dart';
 import 'favorites_service.dart';
+import 'friends_service.dart';
 import 'playback_service.dart';
 import 'progress_service.dart';
 import 'quran_repository.dart';
@@ -24,6 +28,7 @@ class AppState extends ChangeNotifier {
   final SettingsService _settingsService = SettingsService();
   final FavoritesService _favoritesService = FavoritesService();
   final BookmarksService _bookmarksService = BookmarksService();
+  final FriendsService? _friendsService = FeatureFlags.friendsEnabled ? FriendsService() : null;
 
   bool isLoaded = false;
   StreakState streakState = const StreakState();
@@ -130,6 +135,27 @@ class AppState extends ChangeNotifier {
     streakState = _streakService.getState();
     _dayOutcomesCache = null;
     notifyListeners();
+    unawaited(_syncFriendsStatsIfOptedIn());
+  }
+
+  /// Fire-and-forget push of this device's stats to Firestore, if (and only
+  /// if) this device has ever completed Friends setup - see
+  /// FriendsService.hasProfile. Never awaited by callers and never throws
+  /// into the reading flow: FriendsService.syncStats already swallows its
+  /// own network errors.
+  Future<void> _syncFriendsStatsIfOptedIn() async {
+    final friends = _friendsService;
+    if (friends == null) return;
+    if (!await friends.hasProfile()) return;
+    await friends.syncStats(
+      currentStreak: streakState.currentStreak,
+      longestStreak: _streakService.getLongestStreak(),
+      ayahsToday: _streakService.ayahsReadToday(),
+      hasanatToday: _streakService.hasanatToday(),
+      ayahsThisWeek: _streakService.ayahsReadThisWeek(),
+      hasanatThisWeek: _streakService.hasanatThisWeek(),
+      lastActiveDate: dateKey(DateTime.now()),
+    );
   }
 
   bool isAyahRead(int surahNumber, int ayahNumber) => _streakService.isAyahRead(surahNumber, ayahNumber);

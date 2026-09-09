@@ -1,11 +1,15 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'config/feature_flags.dart';
+import 'firebase_options.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/root_screen.dart';
 import 'services/app_state.dart';
+import 'services/friend_nudge_background_task.dart';
 import 'services/hive_service.dart';
 import 'services/playback_service.dart';
 import 'services/wird_audio_handler.dart';
@@ -39,6 +43,13 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initHive();
+  // Only the dev/test build compiles this flag true (see feature_flags.dart)
+  // - a public/prod build never contacts Firebase at all, and needs no
+  // real firebase_options.dart to compile or run.
+  if (FeatureFlags.friendsEnabled) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await registerPeriodicNudgeCheck();
+  }
   // Created here, ahead of the widget tree, so the same instance can be
   // handed to both the audio handler below and the Provider further down.
   final playbackService = PlaybackService();

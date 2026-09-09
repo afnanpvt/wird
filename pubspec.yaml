@@ -41,6 +41,14 @@ dependencies:
   confetti: ^0.8.0
   just_audio: ^0.10.6
   audio_service: ^0.18.19
+  firebase_core: ^4.14.0
+  firebase_auth: ^6.6.1
+  cloud_firestore: ^6.9.0
+  flutter_local_notifications: ^22.3.0
+  workmanager: ^0.10.10
+  dicebear_core: ^10.7.0
+  dicebear_styles: ^10.6.0
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:

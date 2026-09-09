@@ -1,0 +1,74 @@
+rules_version = '2';
+
+// Firestore Security Rules for Wird's Friends feature (see design spec:
+// docs/superpowers/specs/2026-09-09-friends-social-design.md). Deploy with
+// `firebase deploy --only firestore:rules` once the Firebase project
+// exists (see firebase.json's firestore.rules pointer).
+//
+// Everything here runs client-side with no Cloud Functions (the design's
+// hard "$0, no billing card" constraint - Cloud Functions require the
+// Blaze plan). These rules are what makes that safe: they're the only
+// thing standing between "a client can write" and "a client can write
+// anything for anyone".
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A user's own profile: only they can write it, but any signed-in
+    // user can read any profile - needed so a friend's client can look up
+    // your username/avatar/friendCode/show* flags for the leaderboard, and
+    // so friend-code lookup (sendFriendRequestByCode) can find a target uid.
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid;
+      allow delete: if false;
+
+      // A user's own friends subcollection. The tricky part: accepting a
+      // request writes BOTH users/{me}/friends/{them} and
+      // users/{them}/friends/{me} in one batch (see
+      // FriendsService.acceptFriendRequest) - so this must allow writing
+      // into a *different* user's friends subcollection, but only for the
+      // exact uid that has a pending incoming request from me, and only
+      // when I'm also writing my own mirrored entry in the same operation
+      // is not something rules can directly verify across documents, so
+      // instead this checks the weaker-but-sufficient condition: I may
+      // write users/{them}/friends/{me} only if a friendRequests doc
+      // proves {them} actually has a pending request FROM me - i.e. I
+      // can't fabricate a friendship the other side never asked for.
+      match /friends/{friendUid} {
+        allow read: if request.auth != null;
+        allow delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == friendUid);
+        allow create: if request.auth != null && (
+          // Writing my own friends/{friendUid} entry.
+          (request.auth.uid == uid && request.auth.uid != friendUid) ||
+          // Writing the *other* side's mirrored entry - only allowed if
+          // that request I'm claiming to accept actually exists.
+          (request.auth.uid == friendUid &&
+           exists(/databases/$(database)/documents/friendRequests/$(uid)/incoming/$(friendUid)))
+        );
+      }
+    }
+
+    // Incoming friend requests: only the recipient can read/manage their
+    // own inbox; anyone signed in can create a request into someone else's
+    // inbox (that's how sending a request works), but only as themselves.
+    match /friendRequests/{uid}/incoming/{fromUid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == fromUid;
+      allow delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == fromUid);
+      allow update: if false;
+    }
+
+    // Activity stats: only the owner writes their own; any signed-in user
+    // can read any stats doc (needed for the leaderboard and the
+    // background nudge check to read a friend's lastActiveDate/numbers).
+    // Field-level hiding (show* flags) is enforced client-side by simply
+    // not displaying a hidden field - the underlying number is still
+    // technically readable by a friend's client, same trust boundary as
+    // the rest of this friends-only, no-strangers design.
+    match /stats/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

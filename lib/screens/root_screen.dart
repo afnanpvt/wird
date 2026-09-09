@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/feature_flags.dart';
 import '../services/app_state.dart';
+import '../services/friend_nudge_checker.dart';
+import '../services/friends_service.dart';
 import '../services/playback_service.dart';
 import '../widgets/coach_tour.dart';
 import '../widgets/mini_player_bar.dart';
 import 'bookmarks_screen.dart';
 import 'browse_screen.dart';
+import 'friends_screen.dart';
 import 'home_screen.dart';
 import 'listen_screen.dart';
 import 'settings_screen.dart';
@@ -31,16 +35,21 @@ class RootScreen extends StatefulWidget {
   State<RootScreen> createState() => _RootScreenState();
 }
 
-class _RootScreenState extends State<RootScreen> {
+class _RootScreenState extends State<RootScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   final _continueReadingKey = GlobalKey();
   final _browseTabKey = GlobalKey();
   final _settingsTabKey = GlobalKey();
+  final _friendsService = FeatureFlags.friendsEnabled ? FriendsService() : null;
 
   @override
   void initState() {
     super.initState();
+    if (FeatureFlags.friendsEnabled) {
+      WidgetsBinding.instance.addObserver(this);
+      _checkFriendNudges();
+    }
     // Lets a finished Surah advance into the next one on its own, without
     // PlaybackService needing to know about QuranRepository or the reciter
     // setting itself - see AppState.playSurah.
@@ -73,6 +82,28 @@ class _RootScreenState extends State<RootScreen> {
   }
 
   @override
+  void dispose() {
+    if (FeatureFlags.friendsEnabled) WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// See FriendNudgeChecker's class doc: this is the foreground half of
+  /// "notice a friend read today", run once on app start (here) and again
+  /// on every resume ([didChangeAppLifecycleState]) - the background half
+  /// is registerPeriodicNudgeCheck's workmanager task for when the app
+  /// isn't open at all.
+  void _checkFriendNudges() {
+    final service = _friendsService;
+    if (service == null) return;
+    FriendNudgeChecker.checkAndNotify(service);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkFriendNudges();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -84,6 +115,7 @@ class _RootScreenState extends State<RootScreen> {
           const BrowseScreen(),
           const ListenScreen(),
           const BookmarksScreen(),
+          if (FeatureFlags.friendsEnabled) const FriendsScreen(),
           const SettingsScreen(),
         ],
       ),
@@ -135,6 +167,12 @@ class _RootScreenState extends State<RootScreen> {
                     selectedIcon: Icon(Icons.bookmark_rounded),
                     label: 'Bookmarks',
                   ),
+                  if (FeatureFlags.friendsEnabled)
+                    const NavigationDestination(
+                      icon: Icon(Icons.people_outline_rounded),
+                      selectedIcon: Icon(Icons.people_rounded),
+                      label: 'Friends',
+                    ),
                   NavigationDestination(
                     icon: KeyedSubtree(key: _settingsTabKey, child: const Icon(Icons.settings_outlined)),
                     selectedIcon: const Icon(Icons.settings_rounded),

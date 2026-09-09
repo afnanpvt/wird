@@ -245,6 +245,25 @@ Firebase wiring inside the public binary, just hidden), this uses a
   defaults false) — this is what ships to the Play Store, and it never
   compiles the Friends feature's UI into a reachable state.
 
+## One-time setup needed before Friends actually works
+
+This is implemented against a real Firebase project, but no such project
+exists yet — creating one requires an interactive Google login, which has
+to happen on your machine, not from an agent session. Once it exists:
+
+1. Run `flutterfire configure` from the project root, logged in to the
+   Firebase CLI. This overwrites the placeholder values in
+   [`lib/firebase_options.dart`](../../../lib/firebase_options.dart) with
+   your real project's config — nothing else in the app needs to change.
+2. Deploy the Security Rules: `firebase deploy --only firestore:rules`
+   (rules live in [`firestore.rules`](../../../firestore.rules), pointed
+   to by [`firebase.json`](../../../firebase.json)). Without this step,
+   Firestore's default rules block every read/write, and the Friends
+   feature will fail silently (stats sync swallows its own errors by
+   design) or the friend-request/accept flow will throw.
+3. Build and sideload a private test copy:
+   `flutter build apk --flavor dev --dart-define=FRIENDS_ENABLED=true`.
+
 This scaffolding is already implemented as of this spec revision; the
 Friends feature itself is built on top of it.
 

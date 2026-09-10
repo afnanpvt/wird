@@ -70,14 +70,17 @@ default is preserved without needing an explicit switch to express it.
 
 - **Avatar only, no gallery upload** (explicitly out of scope for this
   phase — see *Why no gallery photos* below). A one-time picker shows a
-  grid of **13 predefined avatars** generated via DiceBear's abstract
-  "Shapes" style ([dicebear_core](https://pub.dev/packages/dicebear_core) +
+  grid of **9 predefined avatars**, hand-picked from a larger preview
+  batch, generated via DiceBear's "Thumbs" style
+  ([dicebear_core](https://pub.dev/packages/dicebear_core) +
   [dicebear_styles](https://pub.dev/packages/dicebear_styles), rendered
-  locally as SVGs from 13 fixed seed strings — no network call, no bundled
-  image assets). This style draws only abstract geometric shapes on a
-  colored background — no human figures, faces, or gendered depictions at
-  all, which sidesteps modesty/halal concerns entirely rather than trying
-  to curate "appropriate" illustrated people.
+  locally as SVGs from fixed seed strings — no network call, no bundled
+  image assets). This style draws an abstract thumbs-up icon with simple
+  eyes/mouth — no human figure, body, or clothing at all, which sidesteps
+  modesty/halal concerns entirely rather than trying to curate
+  "appropriate" illustrated people (an earlier revision tried illustrated
+  people via "Open Peeps" and "Shapes"'s pure geometric abstraction before
+  landing here — see git history on lib/models/avatar_seeds.dart).
 - Username is auto-generated (as in the original design); no free-text
   display name input is required to participate.
 
@@ -121,7 +124,7 @@ users/{uid}
   username: string            // generated, e.g. "ahmad_k472"
   friendCode: string          // short shareable code, e.g. "WIRD-7F3K2"
   displayName: string         // from existing SettingsService.getName(), if set
-  avatarSeed: string          // one of 13 fixed seeds for DiceBear "Shapes"
+  avatarSeed: string          // one of 9 fixed seeds for DiceBear "Thumbs"
   friendsEnabled: bool        // the online/offline switch
   showStreak: bool            // default true
   showAyahs: bool             // default true

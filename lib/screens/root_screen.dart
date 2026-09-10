@@ -13,7 +13,6 @@ import 'browse_screen.dart';
 import 'friends_screen.dart';
 import 'home_screen.dart';
 import 'listen_screen.dart';
-import 'settings_screen.dart';
 
 /// Persistent bottom-tab shell around the app's five top-level destinations.
 ///
@@ -40,7 +39,7 @@ class _RootScreenState extends State<RootScreen> with WidgetsBindingObserver {
 
   final _continueReadingKey = GlobalKey();
   final _browseTabKey = GlobalKey();
-  final _settingsTabKey = GlobalKey();
+  final _profileButtonKey = GlobalKey();
   final _friendsService = FeatureFlags.friendsEnabled ? FriendsService() : null;
 
   @override
@@ -73,9 +72,9 @@ class _RootScreenState extends State<RootScreen> with WidgetsBindingObserver {
           description: "Jump anywhere in the Quran whenever you want, without disturbing your progress.",
         ),
         CoachStep(
-          targetKey: _settingsTabKey,
-          title: 'Your settings',
-          description: "Change your name, script, theme, or translation style here.",
+          targetKey: _profileButtonKey,
+          title: 'Your profile',
+          description: "Change your name, script, theme, translation style, or Friends settings here.",
         ),
       ]);
     });
@@ -111,12 +110,11 @@ class _RootScreenState extends State<RootScreen> with WidgetsBindingObserver {
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          HomeScreen(continueReadingKey: _continueReadingKey),
+          HomeScreen(continueReadingKey: _continueReadingKey, profileButtonKey: _profileButtonKey),
           const BrowseScreen(),
           const ListenScreen(),
           const BookmarksScreen(),
           if (FeatureFlags.friendsEnabled) const FriendsScreen(),
-          const SettingsScreen(),
         ],
       ),
       // Explicit theming rather than the Material 3 defaults, to keep this
@@ -173,11 +171,6 @@ class _RootScreenState extends State<RootScreen> with WidgetsBindingObserver {
                       selectedIcon: Icon(Icons.people_rounded),
                       label: 'Friends',
                     ),
-                  NavigationDestination(
-                    icon: KeyedSubtree(key: _settingsTabKey, child: const Icon(Icons.settings_outlined)),
-                    selectedIcon: const Icon(Icons.settings_rounded),
-                    label: 'Settings',
-                  ),
                 ],
               ),
             ),

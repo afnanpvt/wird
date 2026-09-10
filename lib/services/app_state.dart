@@ -34,6 +34,7 @@ class AppState extends ChangeNotifier {
   StreakState streakState = const StreakState();
   List<Bookmark> bookmarks = const [];
   String? userName;
+  String? avatarSeed;
   AppThemeMode themeMode = AppThemeMode.light;
   bool useSimpleTranslation = false;
   QuranScript quranScript = QuranScript.indoPakNastaleeq;
@@ -56,6 +57,7 @@ class AppState extends ChangeNotifier {
     await _bookmarksService.migrateLegacyPosition(_progressService.getLastPosition());
     bookmarks = _bookmarksService.getAll();
     userName = _settingsService.getName();
+    avatarSeed = _settingsService.getAvatarSeed();
     themeMode = _settingsService.getThemeMode();
     useSimpleTranslation = _settingsService.getUseSimpleTranslation();
     fontScale = _settingsService.getFontScale();
@@ -84,11 +86,21 @@ class AppState extends ChangeNotifier {
 
   bool get hasCompletedOnboarding => _settingsService.getHasCompletedOnboarding();
 
-  Future<void> completeOnboarding({required String? name, required QuranScript script}) async {
+  Future<void> completeOnboarding({required String? name, required QuranScript script, required String avatarSeed}) async {
     userName = name?.trim().isEmpty ?? true ? null : name!.trim();
     await _settingsService.saveName(userName ?? '');
+    this.avatarSeed = avatarSeed;
+    await _settingsService.saveAvatarSeed(avatarSeed);
     await setScript(script);
     await _settingsService.saveHasCompletedOnboarding();
+    notifyListeners();
+  }
+
+  /// Changes the avatar from the Profile screen, any time after onboarding -
+  /// not gated by Friends (see models/avatar_seeds.dart's doc comment).
+  Future<void> setAvatarSeed(String seed) async {
+    avatarSeed = seed;
+    await _settingsService.saveAvatarSeed(seed);
     notifyListeners();
   }
 

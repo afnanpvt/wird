@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
-import '../models/avatar_seeds.dart';
 import '../models/friend_profile.dart';
+import '../services/app_state.dart';
 import '../services/friends_service.dart';
-import '../widgets/friend_avatar.dart';
+import '../widgets/profile_avatar.dart';
 
 /// Entry point for the whole Friends feature (see docs/superpowers/specs/
 /// 2026-09-09-friends-social-design.md). There is no separate on/off
-/// setting - this tab is always present, and completing the one-time setup
-/// below (pick an avatar) is itself the opt-in. Never opening this screen
-/// means never provisioning a Firebase Auth account or Firestore profile.
+/// setting - this tab is always present, and tapping "Enable Friends"
+/// below is itself the opt-in. Never tapping it means never provisioning a
+/// Firebase Auth account or Firestore profile. Avatar and name are no
+/// longer chosen here - they're core app identity set during onboarding
+/// (or later from the Profile screen), and enabling Friends just publishes
+/// whichever avatar is already set.
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
 
@@ -33,7 +38,11 @@ class _FriendsScreenState extends State<FriendsScreen> {
     return _service.getOwnProfile();
   }
 
-  void _onSetupComplete(FriendProfile profile) => setState(() => _profileFuture = Future.value(profile));
+  void _onSetupComplete(FriendProfile profile) {
+    setState(() {
+      _profileFuture = Future.value(profile);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,8 +65,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }
 }
 
-/// One-time setup: pick a predefined avatar, done. Creating the profile is
-/// what opts this device in - see the class doc above.
+/// One tap to opt in: publishes the avatar already chosen during onboarding
+/// (or from the Profile screen) under a freshly generated username and
+/// friend code. See the class doc above.
 class _FriendsSetup extends StatefulWidget {
   final FriendsService service;
   final ValueChanged<FriendProfile> onComplete;
@@ -69,25 +79,33 @@ class _FriendsSetup extends StatefulWidget {
 }
 
 class _FriendsSetupState extends State<_FriendsSetup> {
-  String? _selectedSeed;
   bool _creating = false;
   String? _error;
+  late String _candidateUsername;
 
-  Future<void> _confirm() async {
-    if (_selectedSeed == null) return;
+  @override
+  void initState() {
+    super.initState();
+    _candidateUsername = widget.service.generateUsername();
+  }
+
+  void _reroll() => setState(() => _candidateUsername = widget.service.generateUsername());
+
+  Future<void> _confirm(String avatarSeed) async {
     setState(() {
       _creating = true;
       _error = null;
     });
     try {
-      final profile = await widget.service.createProfile(avatarSeed: _selectedSeed!);
+      final profile = await widget.service.createProfile(avatarSeed: avatarSeed, username: _candidateUsername);
       if (!mounted) return;
       widget.onComplete(profile);
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('Friends setup failed: $e\n$stack');
       if (!mounted) return;
       setState(() {
         _creating = false;
-        _error = "Couldn't set up Friends - check your connection and try again.";
+        _error = "Something went wrong on our end - mind trying again?";
       });
     }
   }
@@ -95,35 +113,48 @@ class _FriendsSetupState extends State<_FriendsSetup> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final avatarSeed = context.watch<AppState>().avatarSeed;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text('Pick an avatar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
+          if (avatarSeed != null) Center(child: ProfileAvatar(seed: avatarSeed, size: 72)),
+          const SizedBox(height: 20),
+          Text(
+            'Read together, not alone',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+          ),
           const SizedBox(height: 8),
           Text(
-            'This is how friends will see you. You can add friends and see a friends-only leaderboard once set up.',
-            style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
+            "Add a few friends and gently nudge each other to keep reading. Nothing about what you read is ever shared - just your streak, if you choose to show it.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 24),
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            children: [
-              for (final seed in avatarSeeds)
-                _AvatarChoice(
-                  seed: seed,
-                  selected: seed == _selectedSeed,
-                  onTap: () => setState(() => _selectedSeed = seed),
+          const SizedBox(height: 28),
+          Center(
+            child: Column(
+              children: [
+                Text("You'll go by", style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_candidateUsername, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.shuffle_rounded, size: 20),
+                      tooltip: 'Try another name',
+                      onPressed: _creating ? null : _reroll,
+                    ),
+                  ],
                 ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           if (_error != null) ...[
-            Text(_error!, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
+            Text(_error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
             const SizedBox(height: 12),
           ],
           FilledButton(
@@ -133,41 +164,16 @@ class _FriendsSetupState extends State<_FriendsSetup> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             ),
-            onPressed: (_selectedSeed == null || _creating) ? null : _confirm,
+            onPressed: (avatarSeed == null || _creating) ? null : () => _confirm(avatarSeed),
             child: _creating
                 ? SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.surface),
                   )
-                : const Text('Continue'),
+                : const Text("Let's go"),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AvatarChoice extends StatelessWidget {
-  final String seed;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _AvatarChoice({required this.seed, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
-        ),
-        child: FriendAvatar(seed: seed, size: 56),
       ),
     );
   }
@@ -195,9 +201,11 @@ class _FriendsHomeState extends State<_FriendsHome> {
   }
 
   Future<void> _addFriend() async {
-    final code = await showDialog<String>(
+    final code = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => const _AddFriendDialog(),
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => const _AddFriendSheet(),
     );
     if (code == null || code.trim().isEmpty) return;
     try {
@@ -296,7 +304,7 @@ class _ProfileCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              FriendAvatar(seed: profile.avatarSeed, size: 48),
+              ProfileAvatar(seed: profile.avatarSeed, size: 48),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -314,8 +322,35 @@ class _ProfileCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          FilledButton.tonal(onPressed: onAddFriend, child: const Text('Add a friend')),
+          Row(
+            children: [
+              Expanded(child: FilledButton.tonal(onPressed: onAddFriend, child: const Text('Add a friend'))),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _shareInvite(profile.friendCode),
+                  icon: const Icon(Icons.share_outlined, size: 18),
+                  label: const Text('Invite'),
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  // No auto-adding deep link (that would need a web domain or a custom URL
+  // scheme that only resolves for someone who already has the app - see
+  // the design spec), but the download link IS real: it's the same direct
+  // APK link the project's own README already publishes for installs
+  // outside the Play Store.
+  void _shareInvite(String friendCode) {
+    SharePlus.instance.share(
+      ShareParams(
+        text: "Join me on Wird, a Quran reading app.\n"
+            'Download: https://github.com/afnanpvt/wird/releases/latest/download/wird.apk\n'
+            "Then add me as a friend using code $friendCode.",
       ),
     );
   }
@@ -365,14 +400,14 @@ class _VisibilityCard extends StatelessWidget {
   }
 }
 
-class _AddFriendDialog extends StatefulWidget {
-  const _AddFriendDialog();
+class _AddFriendSheet extends StatefulWidget {
+  const _AddFriendSheet();
 
   @override
-  State<_AddFriendDialog> createState() => _AddFriendDialogState();
+  State<_AddFriendSheet> createState() => _AddFriendSheetState();
 }
 
-class _AddFriendDialogState extends State<_AddFriendDialog> {
+class _AddFriendSheetState extends State<_AddFriendSheet> {
   final _controller = TextEditingController();
 
   @override
@@ -383,17 +418,48 @@ class _AddFriendDialogState extends State<_AddFriendDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add a friend'),
-      content: TextField(
-        controller: _controller,
-        textCapitalization: TextCapitalization.characters,
-        decoration: const InputDecoration(hintText: 'e.g. WIRD-7F3K2'),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 8, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Add a friend', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
+          const SizedBox(height: 6),
+          Text(
+            "Enter the code they shared with you.",
+            style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: 1),
+            decoration: InputDecoration(
+              hintText: 'WIRD-7F3K2',
+              filled: true,
+              fillColor: colorScheme.surfaceContainerLow,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            onSubmitted: (value) => Navigator.of(context).pop(value),
+          ),
+          const SizedBox(height: 20),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.onSurface,
+              foregroundColor: colorScheme.surface,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            ),
+            onPressed: () => Navigator.of(context).pop(_controller.text),
+            child: const Text('Send request'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.of(context).pop(_controller.text), child: const Text('Send request')),
-      ],
     );
   }
 }
@@ -485,7 +551,7 @@ class _Leaderboard extends StatelessWidget {
                     decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(14)),
                     child: Row(
                       children: [
-                        FriendAvatar(seed: entry.avatarSeed, size: 36),
+                        ProfileAvatar(seed: entry.avatarSeed, size: 36),
                         const SizedBox(width: 12),
                         Expanded(child: Text(entry.username, style: const TextStyle(fontWeight: FontWeight.w600))),
                         _StatChip(icon: Icons.local_fire_department_rounded, value: entry.streak),

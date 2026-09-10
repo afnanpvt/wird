@@ -7,7 +7,9 @@ import 'package:provider/provider.dart';
 import '../models/ayah.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
+import '../widgets/profile_avatar.dart';
 import 'reading_screen.dart';
+import 'settings_screen.dart';
 import 'streak_calendar_screen.dart';
 
 String _formatDuration(int totalSeconds) {
@@ -28,11 +30,12 @@ String _formatCompactCount(int n) {
 }
 
 class HomeScreen extends StatefulWidget {
-  /// Supplied by [RootScreen] so its coach tour can point at this card even
-  /// though it lives one level down, inside this tab's own content.
+  /// Supplied by [RootScreen] so its coach tour can point at these even
+  /// though they live one level down, inside this tab's own content.
   final GlobalKey continueReadingKey;
+  final GlobalKey profileButtonKey;
 
-  const HomeScreen({super.key, required this.continueReadingKey});
+  const HomeScreen({super.key, required this.continueReadingKey, required this.profileButtonKey});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -44,18 +47,13 @@ class _HomeScreenState extends State<HomeScreen> {
   // "Salaam" all say the same thing), so it never actually felt varied - it
   // was one greeting rotating through synonyms. This one keeps the Islamic
   // greeting itself (dropping only its repeated re-phrasings), and adds
-  // genuinely different sentiments built around feeling at home here, not
-  // just being greeted. "Ahlan wa sahlan" is doing real work, not decoration:
-  // it's the Arabic word for "welcome" built from "ahl" (family/people) and
-  // "sahl" (easy, level ground) - literally "you've arrived among family, on
-  // easy ground," which is closer to what this screen is actually trying to
-  // say than a translated salutation is.
+  // genuinely different, generalized sentiments built around feeling at
+  // home here, not just being greeted.
   //
   // Randomized once per app open rather than per rebuild, so it doesn't
   // change every time something else on the screen triggers a rebuild.
   static const _greetings = [
     'Assalamu alaikum',
-    'Ahlan wa sahlan',
     'Welcome back',
     'Good to have you back',
     "You're home",
@@ -97,6 +95,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: KeyedSubtree(
+              key: widget.profileButtonKey,
+              child: _ProfileButton(avatarSeed: appState.avatarSeed),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -168,6 +175,43 @@ class _HomeScreenState extends State<HomeScreen> {
               const _StatsCard(),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The avatar itself, in a circle with a visible outline - reads as
+/// tappable the way a plain unbounded icon button doesn't, matching the
+/// standard "profile picture in the corner" convention rather than an
+/// icon-button-styled person glyph.
+class _ProfileButton extends StatelessWidget {
+  final String? avatarSeed;
+
+  const _ProfileButton({required this.avatarSeed});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SettingsScreen()),
+        ),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colorScheme.surfaceContainerLow,
+            border: Border.all(color: colorScheme.outlineVariant, width: 1.5),
+          ),
+          child: avatarSeed == null
+              ? Icon(Icons.person_outline_rounded, color: colorScheme.onSurfaceVariant, size: 22)
+              : Padding(padding: const EdgeInsets.all(2), child: ProfileAvatar(seed: avatarSeed!, size: 33)),
         ),
       ),
     );

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/avatar_seeds.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
+import '../widgets/avatar_picker_grid.dart';
 import 'root_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -17,8 +19,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _nameController = TextEditingController();
   int _step = 0;
   QuranScript _selectedScript = QuranScript.indoPakNastaleeq;
+  String _selectedAvatarSeed = avatarSeeds.first;
 
-  static const _totalSteps = 3;
+  static const _totalSteps = 4;
 
   @override
   void dispose() {
@@ -34,7 +37,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _finish() async {
     final appState = context.read<AppState>();
-    await appState.completeOnboarding(name: _nameController.text, script: _selectedScript);
+    await appState.completeOnboarding(
+      name: _nameController.text,
+      script: _selectedScript,
+      avatarSeed: _selectedAvatarSeed,
+    );
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const RootScreen()));
   }
@@ -70,11 +77,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   _NameStep(controller: _nameController, onNext: () => _goTo(1)),
+                  _AvatarStep(
+                    name: _nameController.text.trim(),
+                    selected: _selectedAvatarSeed,
+                    onSelect: (seed) => setState(() => _selectedAvatarSeed = seed),
+                    onNext: () => _goTo(2),
+                    onBack: () => _goTo(0),
+                  ),
                   _ScriptStep(
                     selected: _selectedScript,
                     onSelect: (s) => setState(() => _selectedScript = s),
-                    onNext: () => _goTo(2),
-                    onBack: () => _goTo(0),
+                    onNext: () => _goTo(3),
+                    onBack: () => _goTo(1),
                   ),
                   _WelcomeStep(name: _nameController.text.trim(), onFinish: _finish),
                 ],
@@ -120,10 +134,10 @@ class _NameStep extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text("What should we call you?", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, height: 1.2)),
+                const Text("Assalamu alaikum! What should we call you?", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, height: 1.2)),
                 const SizedBox(height: 8),
                 Text(
-                  "So your greeting feels like it's actually for you. You can skip this if you'd rather not.",
+                  "We'll use it to make this feel like your own space, not just an app.",
                   style: TextStyle(fontSize: 14, height: 1.4, color: colorScheme.onSurfaceVariant),
                 ),
               ],
@@ -147,6 +161,58 @@ class _NameStep extends StatelessWidget {
             onSubmitted: (_) => onNext(),
           ),
           const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.onSurface,
+                foregroundColor: colorScheme.surface,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              onPressed: onNext,
+              child: const Text('Continue'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarStep extends StatelessWidget {
+  final String name;
+  final String selected;
+  final ValueChanged<String> onSelect;
+  final VoidCallback onNext;
+  final VoidCallback onBack;
+
+  const _AvatarStep({required this.name, required this.selected, required this.onSelect, required this.onNext, required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final greeting = name.isEmpty ? 'Nice to meet you' : 'Nice to meet you, $name';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          IconButton(
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back),
+            style: IconButton.styleFrom(alignment: Alignment.centerLeft, padding: EdgeInsets.zero),
+          ),
+          const SizedBox(height: 8),
+          Text('$greeting - pick a face to go with it', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1.2)),
+          const SizedBox(height: 8),
+          Text(
+            "You can change it anytime later.",
+            style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 36),
+          Center(child: AvatarPickerGrid(selectedSeed: selected, onSelect: onSelect)),
+          const Spacer(),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -191,7 +257,7 @@ class _ScriptStep extends StatelessWidget {
           const Text('Which script feels like home?', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1.2)),
           const SizedBox(height: 8),
           Text(
-            'You can change this anytime in Settings.',
+            'You can change this anytime in your Profile.',
             style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 24),

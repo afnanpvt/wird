@@ -14,6 +14,14 @@ class SettingsService {
 
   Future<void> saveName(String name) => _box.put('name', name.trim());
 
+  /// Core profile identity, available regardless of whether Friends is
+  /// ever enabled - see models/avatar_seeds.dart for the fixed picker set.
+  /// Null means "never chosen one yet" (pre-onboarding-update installs, or
+  /// mid-onboarding before the avatar step completes).
+  String? getAvatarSeed() => _box.get('avatarSeed') as String?;
+
+  Future<void> saveAvatarSeed(String seed) => _box.put('avatarSeed', seed);
+
   AppThemeMode getThemeMode() {
     final value = _box.get('themeMode') as String? ?? 'light';
     return AppThemeMode.values.firstWhere((m) => m.name == value, orElse: () => AppThemeMode.light);

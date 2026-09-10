@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/feature_flags.dart';
 import '../models/quran_script.dart';
 import '../models/reciter.dart';
 import '../services/app_state.dart';
+import '../services/friends_service.dart';
+import '../widgets/avatar_picker_grid.dart';
+import '../widgets/profile_avatar.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,6 +19,9 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _nameController;
+  final _friendsService = FeatureFlags.friendsEnabled ? FriendsService() : null;
+  bool _showAvatarPicker = false;
+  bool _editingName = false;
 
   @override
   void initState() {
@@ -25,6 +33,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectAvatar(String seed) async {
+    setState(() => _showAvatarPicker = false);
+    await context.read<AppState>().setAvatarSeed(seed);
+    // Keeps the published Friends profile's avatar in sync, if Friends is
+    // already enabled - a no-op otherwise (see updateAvatarSeed's doc).
+    await _friendsService?.updateAvatarSeed(seed);
+  }
+
+  void _confirmName() {
+    context.read<AppState>().saveName(_nameController.text);
+    setState(() => _editingName = false);
   }
 
   static const _themeLabels = {
@@ -39,10 +60,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final appState = context.watch<AppState>();
 
     return Scaffold(
-      appBar: AppBar(elevation: 0, title: const Text('Settings')),
+      appBar: AppBar(elevation: 0, title: const Text('Profile')),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
         children: [
+          // Identity: avatar + name, the one thing every profile screen
+          // leads with - everything else (appearance, script, reciter) is
+          // a preference, not who you are.
+          Center(
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () => setState(() => _showAvatarPicker = !_showAvatarPicker),
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      if (appState.avatarSeed != null)
+                        ProfileAvatar(seed: appState.avatarSeed!, size: 96)
+                      else
+                        CircleAvatar(radius: 48, backgroundColor: colorScheme.surfaceContainerLow),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colorScheme.onSurface,
+                          border: Border.all(color: colorScheme.surface, width: 2),
+                        ),
+                        child: Icon(Icons.edit_rounded, size: 14, color: colorScheme.surface),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                if (_editingName)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 200,
+                        child: TextField(
+                          controller: _nameController,
+                          autofocus: true,
+                          textAlign: TextAlign.center,
+                          textCapitalization: TextCapitalization.words,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                          decoration: const InputDecoration(hintText: 'Your name', isDense: true),
+                          onSubmitted: (_) => _confirmName(),
+                        ),
+                      ),
+                      IconButton(icon: const Icon(Icons.check_rounded), onPressed: _confirmName),
+                    ],
+                  )
+                else
+                  GestureDetector(
+                    onTap: () => setState(() => _editingName = true),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          appState.userName?.isNotEmpty == true ? appState.userName! : 'Add your name',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: appState.userName?.isNotEmpty == true ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.edit_outlined, size: 15, color: colorScheme.onSurfaceVariant),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (_showAvatarPicker) ...[
+            const SizedBox(height: 20),
+            AvatarPickerGrid(selectedSeed: appState.avatarSeed, onSelect: _selectAvatar),
+          ],
+          const SizedBox(height: 40),
           Text('APPEARANCE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 12),
           SegmentedButton<AppThemeMode>(
@@ -55,28 +152,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               selectedBackgroundColor: colorScheme.onSurface,
               selectedForegroundColor: colorScheme.surface,
             ),
-          ),
-          const SizedBox(height: 40),
-          Text('YOUR NAME', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
-          const SizedBox(height: 8),
-          Text(
-            "Used to greet you on the home screen. Leave blank if you'd rather not.",
-            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _nameController,
-            textCapitalization: TextCapitalization.words,
-            autocorrect: false,
-            enableSuggestions: false,
-            decoration: InputDecoration(
-              hintText: 'Your name',
-              filled: true,
-              fillColor: colorScheme.surfaceContainerLow,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            ),
-            onChanged: (value) => context.read<AppState>().saveName(value),
           ),
           const SizedBox(height: 40),
           Text('QURAN SCRIPT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
@@ -105,46 +180,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 10),
           ],
-          const SizedBox(height: 30),
+          const SizedBox(height: 40),
           Text('YOUR DATA', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 8),
           Text(
-            'Your reading position, streak, and stats are stored only on this device, never sent anywhere. '
-            "They're kept permanently and will only be lost if you uninstall wird.",
+            FeatureFlags.friendsEnabled
+                ? 'Your reading position, streak, and stats are stored on this device and kept permanently. '
+                    'If you add friends, only your streak, ayah count, and hasanat (never what you actually read) are shared with them - and only what you choose to show.'
+                : 'Your reading position, streak, and stats are stored only on this device, never sent anywhere. '
+                    "They're kept permanently and will only be lost if you uninstall wird.",
             style: TextStyle(fontSize: 14, height: 1.5, color: colorScheme.onSurface),
           ),
-          const SizedBox(height: 48),
-          Text('ABOUT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
-          const SizedBox(height: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Image.asset(
-                Theme.of(context).brightness == Brightness.dark
-                    ? 'assets/images/logo_foreground_dark.png'
-                    : 'assets/images/logo_foreground.png',
-                height: 44,
+          const SizedBox(height: 40),
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AboutScreen()),
               ),
-              const SizedBox(height: 8),
-              Text('built by afnan', style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
-              const SizedBox(height: 16),
-              // Attribution for bundled third-party text/fonts/audio - the
-              // IndoPak font's own licence asks for a courtesy credit
-              // somewhere users can find it, which is here.
-              Text(
-                'Quran text: QuranWBW IndoPak and Tanzil Uthmani.\n'
-                'Arabic type: Amiri, AlQuran IndoPak by QuranWBW.\n'
-                'Recitation: everyayah.com.',
-                style: TextStyle(fontSize: 11.5, height: 1.6, color: colorScheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text('feedback or issues', style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
-          const SizedBox(height: 4),
-          SelectableText(
-            'afnan.wird@gmail.com',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+              style: TextButton.styleFrom(foregroundColor: colorScheme.onSurfaceVariant),
+              child: const Text('About wird', style: TextStyle(fontSize: 12.5)),
+            ),
           ),
         ],
       ),
@@ -250,4 +305,3 @@ class _ScriptOption extends StatelessWidget {
     );
   }
 }
-

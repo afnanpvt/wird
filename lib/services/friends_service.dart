@@ -1,8 +1,6 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dicebear_core/dicebear_core.dart';
-import 'package:dicebear_styles/shapes.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:hive/hive.dart';
 
@@ -65,12 +63,31 @@ class FriendsService {
   String _generateFriendCode() =>
       'WIRD-${List.generate(5, (_) => _friendCodeChars[_rng.nextInt(_friendCodeChars.length)]).join()}';
 
-  String _generateUsername() => 'reader_${1000 + _rng.nextInt(9000)}';
+  // A modest, pleasant word-pair rather than "reader_4821" - still fully
+  // anonymous (no PII), just nicer to look at on a leaderboard.
+  static const _usernameAdjectives = ['noble', 'quiet', 'gentle', 'humble', 'steady', 'patient', 'sincere', 'devoted'];
+  static const _usernameNouns = ['seeker', 'reader', 'listener', 'traveler', 'reciter', 'companion'];
 
-  /// One-time profile creation - the act of picking an avatar and confirming
-  /// setup. Retries friend-code generation on the (practically negligible)
-  /// chance of a collision with an existing code.
-  Future<FriendProfile> createProfile({required String avatarSeed}) async {
+  /// A candidate username the setup screen shows before the profile is
+  /// actually created, so the user can reroll it (see [generateUsername])
+  /// until they like one, rather than it being silently assigned. Purely
+  /// client-side/local until [createProfile] actually writes it.
+  String generateUsername() {
+    final adjective = _usernameAdjectives[_rng.nextInt(_usernameAdjectives.length)];
+    final noun = _usernameNouns[_rng.nextInt(_usernameNouns.length)];
+    return '$adjective-$noun-${10 + _rng.nextInt(90)}';
+  }
+
+  /// One-time profile creation - publishes this device's already-chosen
+  /// local avatar (see AppState.avatarSeed / models/avatar_seeds.dart) and
+  /// the username the user confirmed on the setup screen (see
+  /// [generateUsername]) to Firestore under a freshly generated friend
+  /// code. This is what "opting in to Friends" actually does now:
+  /// avatar/name already exist locally regardless of Friends (see the
+  /// design spec's "Feature entry point" section, revised) - this call
+  /// just publishes them. Retries friend-code generation on the
+  /// (practically negligible) chance of a collision with an existing code.
+  Future<FriendProfile> createProfile({required String avatarSeed, required String username}) async {
     await ensureSignedIn();
     for (var attempt = 0; attempt < 5; attempt++) {
       final code = _generateFriendCode();
@@ -79,7 +96,7 @@ class FriendsService {
 
       final profile = FriendProfile(
         uid: _uid,
-        username: _generateUsername(),
+        username: username,
         friendCode: code,
         avatarSeed: avatarSeed,
         friendsEnabled: true,
@@ -91,6 +108,15 @@ class FriendsService {
       return profile;
     }
     throw StateError('Could not generate a unique friend code after 5 attempts');
+  }
+
+  /// Keeps the published avatar in sync if the user changes it later from
+  /// the Profile screen, after Friends is already enabled.
+  Future<void> updateAvatarSeed(String avatarSeed) async {
+    if (_auth.currentUser == null) return;
+    final doc = await _ownProfileDoc.get();
+    if (!doc.exists) return;
+    await _ownProfileDoc.update({'avatarSeed': avatarSeed});
   }
 
   Future<void> setOnline(bool online) => _ownProfileDoc.update({'friendsEnabled': online});
@@ -204,13 +230,6 @@ class FriendsService {
     if (!doc.exists) return FriendStats.zero;
     return FriendStats.fromMap(doc.data()!);
   }
-
-  /// SVG markup for a predefined avatar seed - rendered fully locally via
-  /// DiceBear's "Shapes" style (abstract geometric shapes, no human figures
-  /// or faces), no network call. Cache the [Avatar]/[Style] instance if this
-  /// is ever called in a hot loop; the settings/leaderboard use here render
-  /// at most a couple dozen avatars per screen build.
-  static String avatarSvgFor(String seed) => Avatar(Style.parse(shapes), {'seed': seed}).svg;
 
   /// Once-per-friend-per-day nudge throttle, kept locally (Hive) rather than
   /// synced - only this device ever needs to know whether it has already

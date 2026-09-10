@@ -172,8 +172,8 @@ class _NameStep extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: colorScheme.onSurface,
                 foregroundColor: colorScheme.surface,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: const StadiumBorder(),
               ),
               onPressed: onNext,
               child: const Text('Continue'),
@@ -205,7 +205,7 @@ class _AvatarStep extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back_rounded),
             style: IconButton.styleFrom(alignment: Alignment.centerLeft, padding: EdgeInsets.zero),
           ),
           const SizedBox(height: 8),
@@ -224,8 +224,8 @@ class _AvatarStep extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: colorScheme.onSurface,
                 foregroundColor: colorScheme.surface,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: const StadiumBorder(),
               ),
               onPressed: onNext,
               child: const Text('Continue'),
@@ -255,7 +255,7 @@ class _ScriptStep extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back_rounded),
             style: IconButton.styleFrom(alignment: Alignment.centerLeft, padding: EdgeInsets.zero),
           ),
           const SizedBox(height: 8),
@@ -282,8 +282,8 @@ class _ScriptStep extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: colorScheme.onSurface,
                 foregroundColor: colorScheme.surface,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: const StadiumBorder(),
               ),
               onPressed: onNext,
               child: const Text('Continue'),
@@ -309,14 +309,14 @@ class _ScriptCard extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -411,8 +411,8 @@ class _WelcomeStep extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: colorScheme.onSurface,
                 foregroundColor: colorScheme.surface,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: const StadiumBorder(),
               ),
               onPressed: onFinish,
               child: const Text("Let's begin"),

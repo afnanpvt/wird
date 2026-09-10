@@ -200,7 +200,7 @@ class _SavedListView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.favorite_border, size: 40, color: colorScheme.onSurfaceVariant),
+              Icon(Icons.favorite_border_rounded, size: 40, color: colorScheme.onSurfaceVariant),
               const SizedBox(height: 12),
               Text(
                 'No saved verses yet',
@@ -210,7 +210,7 @@ class _SavedListView extends StatelessWidget {
               Text(
                 'Tap the heart while reading a verse to save it here.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+                style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -249,7 +249,7 @@ class _SavedListView extends StatelessWidget {
           ),
           trailing: IconButton(
             tooltip: 'Remove from saved verses',
-            icon: Icon(Icons.favorite, color: colorScheme.primary),
+            icon: Icon(Icons.favorite_rounded, color: colorScheme.primary),
             onPressed: () => appState.toggleFavorite(favorite.surahNumber, favorite.ayahNumber),
           ),
           onTap: () => Navigator.of(context).push(

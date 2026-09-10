@@ -132,7 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Icon(Icons.edit_outlined, size: 15, color: colorScheme.onSurfaceVariant),
+                        Icon(Icons.edit_rounded, size: 15, color: colorScheme.onSurfaceVariant),
                       ],
                     ),
                   ),
@@ -144,7 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             AvatarPickerGrid(selectedSeed: appState.avatarSeed, onSelect: _selectAvatar),
           ],
           const SizedBox(height: 40),
-          Text('APPEARANCE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
+          Text('APPEARANCE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 12),
           SegmentedButton<AppThemeMode>(
             segments: AppThemeMode.values
@@ -158,7 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 40),
-          Text('QURAN SCRIPT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
+          Text('QURAN SCRIPT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 12),
           for (final script in QuranScript.values) ...[
             _ScriptOption(
@@ -169,11 +169,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 10),
           ],
           const SizedBox(height: 40),
-          Text('RECITER', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
+          Text('RECITER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 8),
           Text(
             'Who recites the verse audio while reading.',
-            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+            style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
           for (final r in Reciter.values) ...[
@@ -185,7 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 10),
           ],
           const SizedBox(height: 40),
-          Text('YOUR DATA', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
+          Text('YOUR DATA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 8),
           Text(
             FeatureFlags.friendsEnabled
@@ -193,7 +193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'If you add friends, only your streak, ayah count, and hasanat (never what you actually read) are shared with them - and only what you choose to show.'
                 : 'Your reading position, streak, and stats are stored only on this device, never sent anywhere. '
                     "They're kept permanently and will only be lost if you uninstall wird.",
-            style: TextStyle(fontSize: 14, height: 1.5, color: colorScheme.onSurface),
+            style: TextStyle(fontSize: 13.5, height: 1.5, color: colorScheme.onSurface),
           ),
           const SizedBox(height: 40),
           Center(
@@ -223,14 +223,14 @@ class _ReciterOption extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
           ),
           child: Row(
@@ -263,14 +263,14 @@ class _ScriptOption extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
           ),
           child: Row(

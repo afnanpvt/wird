@@ -275,7 +275,7 @@ class _MonthGrid extends StatelessWidget {
         Text(
           '$daysReadThisMonth day${daysReadThisMonth == 1 ? '' : 's'} read this month',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+          style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
         ),
       ],
     );
@@ -463,14 +463,14 @@ class _MonthYearSheetState extends State<_MonthYearSheet> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'Jump to month',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
           ),
           const SizedBox(height: 16),
           Row(
@@ -537,9 +537,9 @@ class _MonthOption extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: selected ? colorScheme.primary : colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Center(
           child: Text(

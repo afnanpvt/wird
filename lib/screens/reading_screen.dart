@@ -510,7 +510,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
                 ? 'Remove from saved verses'
                 : 'Add to saved verses',
             icon: Icon(
-              appState.isFavorite(content.surahNumber, content.ayahNumber) ? Icons.favorite : Icons.favorite_border,
+              appState.isFavorite(content.surahNumber, content.ayahNumber) ? Icons.favorite_rounded : Icons.favorite_border_rounded,
               color: appState.isFavorite(content.surahNumber, content.ayahNumber) ? Theme.of(context).colorScheme.primary : null,
             ),
             onPressed: _toggleFavorite,
@@ -969,7 +969,7 @@ class _SurahEndCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 'Up next · $nextName · $nextAyahCount verses',
-                style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+                style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -1095,7 +1095,7 @@ class _ReadingOptionsSheetState extends State<_ReadingOptionsSheet> {
     final appState = context.watch<AppState>();
     final colorScheme = Theme.of(context).colorScheme;
     final sectionLabelStyle = TextStyle(
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.6,
       color: colorScheme.onSurfaceVariant,
@@ -1109,21 +1109,21 @@ class _ReadingOptionsSheetState extends State<_ReadingOptionsSheet> {
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Reading options',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
             ),
             const SizedBox(height: 20),
             Text('JUMP TO AYAH', style: sectionLabelStyle),
             const SizedBox(height: 2),
             Text(
               'Ayah $_selectedAyah of ${widget.totalAyahs}',
-              style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+              style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
             ),
             Slider(
               value: _selectedAyah.toDouble(),
@@ -1141,7 +1141,7 @@ class _ReadingOptionsSheetState extends State<_ReadingOptionsSheet> {
                   backgroundColor: colorScheme.onSurface,
                   foregroundColor: colorScheme.surface,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  shape: const StadiumBorder(),
                 ),
                 onPressed: () => widget.onGo(_selectedAyah),
                 child: const Text('Go'),
@@ -1214,14 +1214,14 @@ class _CompactScriptOption extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
           ),
           child: Row(
@@ -1320,7 +1320,7 @@ class _SaveBookmarkSheetState extends State<_SaveBookmarkSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Save this spot', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+          Text('Save this spot', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
           const SizedBox(height: 4),
           Text(widget.positionLabel, style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 16),
@@ -1379,7 +1379,7 @@ class _SaveBookmarkSheetState extends State<_SaveBookmarkSheet> {
                 backgroundColor: colorScheme.onSurface,
                 foregroundColor: colorScheme.surface,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                shape: const StadiumBorder(),
               ),
               onPressed: _canSave && !_saving ? _save : null,
               child: _saving
@@ -1419,14 +1419,14 @@ class _BookmarkChoiceCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
           ),
           child: Column(

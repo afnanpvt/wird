@@ -68,15 +68,12 @@ class NowPlayingScreen extends StatelessWidget {
                     child: Center(
                       child: SingleChildScrollView(
                         child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 350),
+                          duration: const Duration(milliseconds: 400),
                           switchInCurve: Curves.easeOut,
                           switchOutCurve: Curves.easeIn,
                           transitionBuilder: (child, animation) => FadeTransition(
                             opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero).animate(animation),
-                              child: child,
-                            ),
+                            child: child,
                           ),
                           child: Column(
                             key: ValueKey('ayah-${state.currentAyahIndex}'),

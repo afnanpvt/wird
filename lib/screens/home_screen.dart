@@ -119,9 +119,9 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 24),
               Material(
                 color: Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const StreakCalendarScreen()),
                   ),
@@ -338,7 +338,7 @@ class _ContinueReadingCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -370,7 +370,7 @@ class _ContinueReadingCard extends StatelessWidget {
                 backgroundColor: colorScheme.onSurface,
                 foregroundColor: colorScheme.surface,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                shape: const StadiumBorder(),
               ),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
@@ -419,9 +419,9 @@ class _VerseOfTheDayState extends State<_VerseOfTheDay> {
 
     return Material(
       color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => ReadingScreen(
@@ -522,7 +522,7 @@ class _StatsCardState extends State<_StatsCard> with SingleTickerProviderStateMi
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
@@ -652,7 +652,7 @@ class _FridayCard extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => Navigator.of(context).push(
@@ -744,7 +744,7 @@ class _NightlyRecitationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => Navigator.of(context).push(

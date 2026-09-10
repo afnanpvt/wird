@@ -183,7 +183,7 @@ class _FriendsSetupState extends State<_FriendsSetup> {
             ),
             const SizedBox(height: 20),
             if (_error != null) ...[
-              Text(_error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
+              Text(_error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 13.5, color: Theme.of(context).colorScheme.error)),
               const SizedBox(height: 12),
             ],
             FilledButton(
@@ -191,7 +191,7 @@ class _FriendsSetupState extends State<_FriendsSetup> {
                 backgroundColor: colorScheme.onSurface,
                 foregroundColor: colorScheme.surface,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                shape: const StadiumBorder(),
               ),
               onPressed: (avatarSeed == null || _creating) ? null : () => _confirm(avatarSeed),
               child: _creating
@@ -253,7 +253,7 @@ class _RequestSentSheet extends StatelessWidget {
               backgroundColor: colorScheme.onSurface,
               foregroundColor: colorScheme.surface,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              shape: const StadiumBorder(),
             ),
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Done'),
@@ -293,7 +293,7 @@ class _NotificationsExplainerSheet extends StatelessWidget {
               backgroundColor: colorScheme.onSurface,
               foregroundColor: colorScheme.surface,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              shape: const StadiumBorder(),
             ),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Sounds good'),
@@ -386,7 +386,7 @@ class _FriendsHomeState extends State<_FriendsHome> {
         title: const Text('Friends'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(Icons.settings_rounded),
             tooltip: 'Friends settings',
             onPressed: _openSettings,
           ),
@@ -511,7 +511,7 @@ class _FriendsSettingsSheetState extends State<_FriendsSettingsSheet> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.share_outlined),
+                      icon: const Icon(Icons.share_rounded),
                       tooltip: 'Share invite',
                       onPressed: _shareInvite,
                     ),
@@ -628,7 +628,7 @@ class _AddFriendSheetState extends State<_AddFriendSheet> {
               backgroundColor: colorScheme.onSurface,
               foregroundColor: colorScheme.surface,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              shape: const StadiumBorder(),
             ),
             onPressed: () => Navigator.of(context).pop('WIRD-${_controller.text}'),
             child: const Text('Send request'),
@@ -659,7 +659,7 @@ class _RequestsList extends StatelessWidget {
             children: [
               Text(
                 requests.length == 1 ? '1 friend request' : '${requests.length} friend requests',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 10),
               for (final request in requests) _RequestRow(service: service, request: request),
@@ -698,18 +698,22 @@ class _RequestRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(request.fromDisplayName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text('wants to add you', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                Text('wants to add you', style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant)),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.cancel_outlined),
+            icon: const Icon(Icons.cancel_rounded),
             color: colorScheme.onSurfaceVariant,
             onPressed: () async {
               try {
                 await service.declineFriendRequest(request.fromUid);
               } catch (e, stack) {
                 debugPrint('Decline friend request failed: $e\n$stack');
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Couldn't decline - try again")),
+                );
               }
             },
           ),

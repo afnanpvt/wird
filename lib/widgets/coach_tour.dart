@@ -150,7 +150,7 @@ class _CoachOverlay extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,6 +170,7 @@ class _CoachOverlay extends StatelessWidget {
                         style: FilledButton.styleFrom(
                           backgroundColor: colorScheme.onSurface,
                           foregroundColor: colorScheme.surface,
+                          shape: const StadiumBorder(),
                         ),
                         onPressed: onNext,
                         child: Text(stepNumber == totalSteps ? 'Done' : 'Next'),

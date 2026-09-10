@@ -142,7 +142,7 @@ class _NightlyRecitationScreenState extends State<NightlyRecitationScreen> {
                                   backgroundColor: colorScheme.onSurface,
                                   foregroundColor: colorScheme.surface,
                                   padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                  shape: const StadiumBorder(),
                                 ),
                                 onPressed: _next,
                                 child: Text(_step == _steps.length - 1 ? 'Finish' : 'Next'),
@@ -258,7 +258,7 @@ class _CompletionView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.nightlight_round, size: 44, color: colorScheme.primary),
+          Icon(Icons.nightlight_rounded, size: 44, color: colorScheme.primary),
           const SizedBox(height: 24),
           Text(
             'Well done',
@@ -278,8 +278,8 @@ class _CompletionView extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: colorScheme.onSurface,
                 foregroundColor: colorScheme.surface,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: const StadiumBorder(),
               ),
               onPressed: onDone,
               child: const Text('Done'),

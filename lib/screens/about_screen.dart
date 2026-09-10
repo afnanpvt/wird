@@ -25,7 +25,7 @@ class AboutScreen extends StatelessWidget {
             height: 44,
           ),
           const SizedBox(height: 10),
-          Text('built by afnan', style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+          Text('built by afnan', style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 28),
           // Attribution for bundled third-party text/fonts/audio - the
           // IndoPak font's own licence asks for a courtesy credit
@@ -45,7 +45,7 @@ class AboutScreen extends StatelessWidget {
                   backgroundColor: colorScheme.onSurface,
                   foregroundColor: colorScheme.surface,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  shape: const StadiumBorder(),
                 ),
                 onPressed: () => showModalBottomSheet<void>(
                   context: context,
@@ -130,7 +130,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
 
     if (_sent) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -149,7 +149,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                 backgroundColor: colorScheme.onSurface,
                 foregroundColor: colorScheme.surface,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                shape: const StadiumBorder(),
               ),
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Done'),
@@ -208,7 +208,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
           ),
           const SizedBox(height: 16),
           if (_error != null) ...[
-            Text(_error!, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
+            Text(_error!, style: TextStyle(fontSize: 13.5, color: Theme.of(context).colorScheme.error)),
             const SizedBox(height: 12),
           ],
           FilledButton(
@@ -216,7 +216,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
               backgroundColor: colorScheme.onSurface,
               foregroundColor: colorScheme.surface,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              shape: const StadiumBorder(),
             ),
             onPressed: _sending ? null : _submit,
             child: _sending

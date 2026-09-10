@@ -19,30 +19,48 @@ class BookmarksScreen extends StatelessWidget {
 
   Future<void> _rename(BuildContext context, Bookmark bookmark) async {
     final controller = TextEditingController(text: bookmark.name);
-    final name = await showDialog<String>(
+    final name = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Rename bookmark'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'Bookmark name'),
-        ),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(24, 8, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Rename bookmark', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: 'Bookmark name',
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerLow,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: colorScheme.onSurface,
+                  foregroundColor: colorScheme.surface,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: const StadiumBorder(),
+                ),
+                onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+                child: const Text('Save'),
+              ),
+            ],
           ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface),
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+        );
+      },
     );
     if (name != null && name.isNotEmpty && context.mounted) {
       await context.read<AppState>().renameBookmark(bookmark.id, name);
@@ -50,25 +68,43 @@ class BookmarksScreen extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, Bookmark bookmark) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete bookmark?'),
-        content: Text("'${bookmark.name}' will be gone for good."),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+      showDragHandle: true,
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Delete bookmark?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
+              const SizedBox(height: 8),
+              Text(
+                "'${bookmark.name}' will be gone for good.",
+                style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: colorScheme.error,
+                  foregroundColor: colorScheme.onError,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: const StadiumBorder(),
+                ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('Cancel', style: TextStyle(color: colorScheme.onSurfaceVariant)),
+              ),
+            ],
           ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+        );
+      },
     );
     if (confirmed == true && context.mounted) {
       await context.read<AppState>().deleteBookmark(bookmark.id);
@@ -101,7 +137,7 @@ class BookmarksScreen extends StatelessWidget {
               '${surah.englishName} · ayah ${bookmark.ayahNumber} · updated ${_relativeTime(bookmark.updatedAt)}',
             ),
             trailing: PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
+              icon: Icon(Icons.more_vert_rounded, color: colorScheme.onSurfaceVariant),
               onSelected: (action) {
                 switch (action) {
                   case 'default':

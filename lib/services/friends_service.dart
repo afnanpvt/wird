@@ -185,6 +185,13 @@ class FriendsService {
       .snapshots()
       .map((snap) => snap.docs.map((d) => FriendRequest.fromMap(d.id, d.data())).toList());
 
+  /// One-shot fetch, for contexts that just need a snapshot (the periodic
+  /// background check) rather than a live stream.
+  Future<List<FriendRequest>> incomingRequestsOnce() async {
+    final snap = await _firestore.collection('friendRequests').doc(_uid).collection('incoming').get();
+    return snap.docs.map((d) => FriendRequest.fromMap(d.id, d.data())).toList();
+  }
+
   /// Accepts an incoming request: writes the friends/{uid} entry symmetrically
   /// on both sides in one batch, then removes the request. Firestore
   /// Security Rules constrain this so a client can only ever write a
@@ -238,4 +245,13 @@ class FriendsService {
   bool alreadyNotifiedToday(String friendUid, String today) => _throttleBox.get(friendUid) == today;
 
   Future<void> markNotifiedToday(String friendUid, String today) => _throttleBox.put(friendUid, today);
+
+  // Same throttle box, a distinct key prefix - a friend-request notification
+  // should fire once ever per request, not once per day, so this is a
+  // simple seen/not-seen flag rather than a date comparison.
+  String _requestNotifiedKey(String fromUid) => 'request_notified_$fromUid';
+
+  bool alreadyNotifiedOfRequest(String fromUid) => _throttleBox.get(_requestNotifiedKey(fromUid)) == true;
+
+  Future<void> markNotifiedOfRequest(String fromUid) => _throttleBox.put(_requestNotifiedKey(fromUid), true);
 }

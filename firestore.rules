@@ -38,7 +38,15 @@ service cloud.firestore {
       match /friends/{friendUid} {
         allow read: if request.auth != null;
         allow delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == friendUid);
-        allow create: if request.auth != null && (
+        // create AND update share the same condition - acceptFriendRequest
+        // uses a plain set() for both sides of the friendship, which
+        // Firestore treats as an update (not create) if the document
+        // already exists (e.g. a retried accept, or a mutual/crossed
+        // request where both sides' accept batches touch the same doc).
+        // Without an update rule here, that retry would silently fail with
+        // permission-denied - this was a real bug, not just missing error
+        // handling in the client.
+        allow create, update: if request.auth != null && (
           // Writing my own friends/{friendUid} entry.
           (request.auth.uid == uid && request.auth.uid != friendUid) ||
           // Writing the *other* side's mirrored entry - only allowed if

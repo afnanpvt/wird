@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/friend_profile.dart';
 import '../services/app_state.dart';
+import '../services/friend_nudge_checker.dart';
 import '../services/friends_service.dart';
 import '../widgets/profile_avatar.dart';
 
@@ -42,6 +43,21 @@ class _FriendsScreenState extends State<FriendsScreen> {
     setState(() {
       _profileFuture = Future.value(profile);
     });
+    // Right after they've opted in is the one moment this explanation has
+    // real context - asking cold, at first app launch, would mean the OS
+    // permission dialog shows with no idea why it's even being asked.
+    _offerNotifications();
+  }
+
+  Future<void> _offerNotifications() async {
+    final wantsNotifications = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => const _NotificationsExplainerSheet(),
+    );
+    if (wantsNotifications == true) {
+      await FriendNudgeChecker.requestPermission();
+    }
   }
 
   @override
@@ -179,6 +195,54 @@ class _FriendsSetupState extends State<_FriendsSetup> {
   }
 }
 
+/// Shown once, right after Friends is enabled - explains why we're about
+/// to ask for notification permission before the OS dialog (which carries
+/// no context of its own) actually appears.
+class _NotificationsExplainerSheet extends StatelessWidget {
+  const _NotificationsExplainerSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.notifications_none_rounded, size: 32, color: colorScheme.primary),
+          const SizedBox(height: 16),
+          Text(
+            "Want a nudge when it matters?",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "We'll only reach out for the things that matter here - a friend request, or a gentle reminder when a friend's already read today. Nothing else, and you can turn it off anytime.",
+            style: TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 24),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.onSurface,
+              foregroundColor: colorScheme.surface,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sounds good'),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Not now', style: TextStyle(color: colorScheme.onSurfaceVariant)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The full Friends home once a profile exists: friend code / add friend,
 /// incoming requests, leaderboard, and visibility settings.
 class _FriendsHome extends StatefulWidget {
@@ -221,180 +285,216 @@ class _FriendsHomeState extends State<_FriendsHome> {
   }
 
   Future<void> _setOnline(bool online) async {
-    setState(() => _profile = _copyProfile(friendsEnabled: online));
+    setState(() => _profile = _profile.copyWith(friendsEnabled: online));
     await widget.service.setOnline(online);
   }
 
   Future<void> _setVisibility({bool? showStreak, bool? showAyahs, bool? showHasanat}) async {
-    setState(() => _profile = _copyProfile(showStreak: showStreak, showAyahs: showAyahs, showHasanat: showHasanat));
+    setState(() => _profile = _profile.copyWith(showStreak: showStreak, showAyahs: showAyahs, showHasanat: showHasanat));
     await widget.service.setFieldVisibility(showStreak: showStreak, showAyahs: showAyahs, showHasanat: showHasanat);
   }
 
-  FriendProfile _copyProfile({bool? friendsEnabled, bool? showStreak, bool? showAyahs, bool? showHasanat}) =>
-      FriendProfile(
-        uid: _profile.uid,
-        username: _profile.username,
-        friendCode: _profile.friendCode,
-        avatarSeed: _profile.avatarSeed,
-        friendsEnabled: friendsEnabled ?? _profile.friendsEnabled,
-        showStreak: showStreak ?? _profile.showStreak,
-        showAyahs: showAyahs ?? _profile.showAyahs,
-        showHasanat: showHasanat ?? _profile.showHasanat,
-      );
+  Future<void> _openSettings() async {
+    final updated = await showModalBottomSheet<FriendProfile>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _FriendsSettingsSheet(
+        profile: _profile,
+        onOnlineChanged: _setOnline,
+        onFieldChanged: _setVisibility,
+      ),
+    );
+    if (updated != null && mounted) setState(() => _profile = updated);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        title: const Text('Friends'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Friends settings',
+            onPressed: _openSettings,
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          _MinimalProfileRow(profile: _profile, onAddFriend: _addFriend),
+          const SizedBox(height: 28),
+          _RequestsList(service: widget.service),
+          const SizedBox(height: 12),
+          _Leaderboard(service: widget.service, onAddFriend: _addFriend),
+        ],
+      ),
+    );
+  }
+}
+
+/// Just enough identity to confirm "this is me" and act (add a friend) -
+/// the full profile (avatar, name, editing) already lives on the Profile
+/// screen, so this doesn't repeat it.
+class _MinimalProfileRow extends StatelessWidget {
+  final FriendProfile profile;
+  final VoidCallback onAddFriend;
+
+  const _MinimalProfileRow({required this.profile, required this.onAddFriend});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return ListView(
-      padding: const EdgeInsets.all(24),
+    return Row(
       children: [
-        _ProfileCard(profile: _profile, onAddFriend: _addFriend),
-        const SizedBox(height: 32),
-        _SectionLabel('VISIBILITY'),
-        const SizedBox(height: 12),
-        _VisibilityCard(profile: _profile, onOnlineChanged: _setOnline, onFieldChanged: _setVisibility),
-        const SizedBox(height: 32),
-        _SectionLabel('REQUESTS'),
-        const SizedBox(height: 12),
-        _RequestsList(service: widget.service),
-        const SizedBox(height: 32),
-        _SectionLabel('LEADERBOARD'),
-        const SizedBox(height: 8),
-        Text(
-          "Only visible to friends who've chosen to show each stat.",
-          style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+        ProfileAvatar(seed: profile.avatarSeed, size: 36),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            profile.username,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        const SizedBox(height: 12),
-        _Leaderboard(service: widget.service),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: onAddFriend,
+          icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+          label: const Text('Add'),
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            foregroundColor: colorScheme.onSurface,
+          ),
+        ),
       ],
     );
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
+/// Everything about managing the Friends feature itself - your code,
+/// sharing an invite, going online/offline, and per-field visibility -
+/// tucked behind the gear icon rather than living on the main Friends
+/// screen, which is about friends and the leaderboard, not settings.
+class _FriendsSettingsSheet extends StatefulWidget {
+  final FriendProfile profile;
+  final ValueChanged<bool> onOnlineChanged;
+  final void Function({bool? showStreak, bool? showAyahs, bool? showHasanat}) onFieldChanged;
+
+  const _FriendsSettingsSheet({required this.profile, required this.onOnlineChanged, required this.onFieldChanged});
 
   @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      );
+  State<_FriendsSettingsSheet> createState() => _FriendsSettingsSheetState();
 }
 
-class _ProfileCard extends StatelessWidget {
-  final FriendProfile profile;
-  final VoidCallback onAddFriend;
+class _FriendsSettingsSheetState extends State<_FriendsSettingsSheet> {
+  late FriendProfile _profile;
 
-  const _ProfileCard({required this.profile, required this.onAddFriend});
+  @override
+  void initState() {
+    super.initState();
+    _profile = widget.profile;
+  }
+
+  void _shareInvite() {
+    SharePlus.instance.share(
+      ShareParams(
+        text: "Join me on Wird, a Quran reading app.\n"
+            'Download: https://github.com/afnanpvt/wird/releases/latest/download/wird.apk\n'
+            "Then add me as a friend using code ${_profile.friendCode}.",
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(20)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) Navigator.of(context).pop(_profile);
+      },
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              ProfileAvatar(seed: profile.avatarSeed, size: 48),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Text('Friends settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
+                child: Row(
                   children: [
-                    Text(profile.username, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Your code: ${profile.friendCode}',
-                      style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('YOUR CODE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
+                          const SizedBox(height: 4),
+                          Text(_profile.friendCode, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.share_outlined),
+                      tooltip: 'Share invite',
+                      onPressed: _shareInvite,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Online to friends'),
+                      subtitle: const Text('Off hides you completely and pauses nudges'),
+                      value: _profile.friendsEnabled,
+                      onChanged: (v) {
+                        setState(() => _profile = _profile.copyWith(friendsEnabled: v));
+                        widget.onOnlineChanged(v);
+                      },
+                    ),
+                    if (_profile.friendsEnabled) ...[
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        title: const Text('Show streak'),
+                        value: _profile.showStreak,
+                        onChanged: (v) {
+                          setState(() => _profile = _profile.copyWith(showStreak: v));
+                          widget.onFieldChanged(showStreak: v);
+                        },
+                      ),
+                      SwitchListTile(
+                        title: const Text('Show ayahs read'),
+                        value: _profile.showAyahs,
+                        onChanged: (v) {
+                          setState(() => _profile = _profile.copyWith(showAyahs: v));
+                          widget.onFieldChanged(showAyahs: v);
+                        },
+                      ),
+                      SwitchListTile(
+                        title: const Text('Show hasanat'),
+                        value: _profile.showHasanat,
+                        onChanged: (v) {
+                          setState(() => _profile = _profile.copyWith(showHasanat: v));
+                          widget.onFieldChanged(showHasanat: v);
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: FilledButton.tonal(onPressed: onAddFriend, child: const Text('Add a friend'))),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _shareInvite(profile.friendCode),
-                  icon: const Icon(Icons.share_outlined, size: 18),
-                  label: const Text('Invite'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // No auto-adding deep link (that would need a web domain or a custom URL
-  // scheme that only resolves for someone who already has the app - see
-  // the design spec), but the download link IS real: it's the same direct
-  // APK link the project's own README already publishes for installs
-  // outside the Play Store.
-  void _shareInvite(String friendCode) {
-    SharePlus.instance.share(
-      ShareParams(
-        text: "Join me on Wird, a Quran reading app.\n"
-            'Download: https://github.com/afnanpvt/wird/releases/latest/download/wird.apk\n'
-            "Then add me as a friend using code $friendCode.",
-      ),
-    );
-  }
-}
-
-class _VisibilityCard extends StatelessWidget {
-  final FriendProfile profile;
-  final ValueChanged<bool> onOnlineChanged;
-  final void Function({bool? showStreak, bool? showAyahs, bool? showHasanat}) onFieldChanged;
-
-  const _VisibilityCard({required this.profile, required this.onOnlineChanged, required this.onFieldChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(20)),
-      child: Column(
-        children: [
-          SwitchListTile(
-            title: const Text('Online to friends'),
-            subtitle: const Text('Off hides you completely and pauses nudges'),
-            value: profile.friendsEnabled,
-            onChanged: onOnlineChanged,
-          ),
-          if (profile.friendsEnabled) ...[
-            const Divider(height: 1),
-            SwitchListTile(
-              title: const Text('Show streak'),
-              value: profile.showStreak,
-              onChanged: (v) => onFieldChanged(showStreak: v),
-            ),
-            SwitchListTile(
-              title: const Text('Show ayahs read'),
-              value: profile.showAyahs,
-              onChanged: (v) => onFieldChanged(showAyahs: v),
-            ),
-            SwitchListTile(
-              title: const Text('Show hasanat'),
-              value: profile.showHasanat,
-              onChanged: (v) => onFieldChanged(showHasanat: v),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -470,46 +570,99 @@ class _RequestsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return StreamBuilder<List<FriendRequest>>(
       stream: service.incomingRequests(),
       builder: (context, snapshot) {
         final requests = snapshot.data ?? const [];
-        if (requests.isEmpty) {
-          return Text('No pending requests', style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant));
-        }
-        return Column(
-          children: [
-            for (final request in requests)
-              Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(14)),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(request.fromUsername, style: const TextStyle(fontWeight: FontWeight.w600))),
-                    IconButton(
-                      icon: const Icon(Icons.check_circle_rounded),
-                      color: colorScheme.primary,
-                      onPressed: () => service.acceptFriendRequest(request.fromUid),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.cancel_outlined),
-                      onPressed: () => service.declineFriendRequest(request.fromUid),
-                    ),
-                  ],
-                ),
+        // Nothing pending - this section simply doesn't exist, rather than
+        // taking up space to announce its own emptiness.
+        if (requests.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                requests.length == 1 ? '1 friend request' : '${requests.length} friend requests',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
-          ],
+              const SizedBox(height: 10),
+              for (final request in requests) _RequestRow(service: service, request: request),
+            ],
+          ),
         );
       },
     );
   }
 }
 
+class _RequestRow extends StatelessWidget {
+  final FriendsService service;
+  final FriendRequest request;
+
+  const _RequestRow({required this.service, required this.request});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: [
+          FutureBuilder<FriendProfile?>(
+            future: service.getProfile(request.fromUid),
+            builder: (context, snapshot) => snapshot.data == null
+                ? CircleAvatar(radius: 18, backgroundColor: colorScheme.outlineVariant)
+                : ProfileAvatar(seed: snapshot.data!.avatarSeed, size: 36),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(request.fromUsername, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text('wants to add you', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.cancel_outlined),
+            color: colorScheme.onSurfaceVariant,
+            onPressed: () async {
+              try {
+                await service.declineFriendRequest(request.fromUid);
+              } catch (e, stack) {
+                debugPrint('Decline friend request failed: $e\n$stack');
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.check_circle_rounded),
+            color: colorScheme.primary,
+            onPressed: () async {
+              try {
+                await service.acceptFriendRequest(request.fromUid);
+              } catch (e, stack) {
+                debugPrint('Accept friend request failed: $e\n$stack');
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Couldn't accept - try again")),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Leaderboard extends StatelessWidget {
   final FriendsService service;
-  const _Leaderboard({required this.service});
+  final VoidCallback onAddFriend;
+  const _Leaderboard({required this.service, required this.onAddFriend});
 
   Future<List<LeaderboardEntry>> _load(List<String> friendUids) async {
     final entries = <LeaderboardEntry>[];
@@ -529,37 +682,38 @@ class _Leaderboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return StreamBuilder<List<String>>(
       stream: service.friendUids(),
       builder: (context, friendsSnapshot) {
         final friendUids = friendsSnapshot.data ?? const [];
         if (friendUids.isEmpty) {
-          return Text('Add a friend to see the leaderboard', style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant));
+          return FutureBuilder<FriendProfile?>(
+            future: service.getOwnProfile(),
+            builder: (context, ownProfile) => _EmptyLeaderboard(
+              friendCode: ownProfile.data?.friendCode,
+              onAddFriend: onAddFriend,
+            ),
+          );
         }
         return FutureBuilder<List<LeaderboardEntry>>(
           future: _load(friendUids),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            if (!snapshot.hasData) {
+              return const Padding(padding: EdgeInsets.only(top: 40), child: Center(child: CircularProgressIndicator()));
+            }
             final entries = snapshot.data!;
+            if (entries.isEmpty) {
+              return FutureBuilder<FriendProfile?>(
+                future: service.getOwnProfile(),
+                builder: (context, ownProfile) => _EmptyLeaderboard(
+                  friendCode: ownProfile.data?.friendCode,
+                  onAddFriend: onAddFriend,
+                ),
+              );
+            }
             return Column(
               children: [
-                for (final entry in entries)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(14)),
-                    child: Row(
-                      children: [
-                        ProfileAvatar(seed: entry.avatarSeed, size: 36),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(entry.username, style: const TextStyle(fontWeight: FontWeight.w600))),
-                        _StatChip(icon: Icons.local_fire_department_rounded, value: entry.streak),
-                        const SizedBox(width: 8),
-                        _StatChip(icon: Icons.menu_book_rounded, value: entry.ayahsThisWeek),
-                      ],
-                    ),
-                  ),
+                for (var i = 0; i < entries.length; i++) _LeaderboardRow(rank: i + 1, entry: entries[i]),
               ],
             );
           },
@@ -569,21 +723,100 @@ class _Leaderboard extends StatelessWidget {
   }
 }
 
-class _StatChip extends StatelessWidget {
-  final IconData icon;
-  final int? value;
-  const _StatChip({required this.icon, required this.value});
+class _LeaderboardRow extends StatelessWidget {
+  final int rank;
+  final LeaderboardEntry entry;
+  const _LeaderboardRow({required this.rank, required this.entry});
+
+  static const _medals = {1: '🥇', 2: '🥈', 3: '🥉'};
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 28,
+            child: _medals.containsKey(rank)
+                ? Text(_medals[rank]!, style: const TextStyle(fontSize: 18))
+                : Text('$rank', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colorScheme.onSurfaceVariant)),
+          ),
+          const SizedBox(width: 6),
+          ProfileAvatar(seed: entry.avatarSeed, size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(entry.username, style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+          ),
+          _StatColumn(icon: Icons.local_fire_department_rounded, value: entry.streak, label: 'streak'),
+          const SizedBox(width: 14),
+          _StatColumn(icon: Icons.menu_book_rounded, value: entry.ayahsThisWeek, label: 'ayahs'),
+          const SizedBox(width: 14),
+          _StatColumn(icon: Icons.auto_awesome_rounded, value: entry.hasanatThisWeek, label: 'hasanat'),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatColumn extends StatelessWidget {
+  final IconData icon;
+  final int? value;
+  final String label;
+  const _StatColumn({required this.icon, required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text(value == null ? '-' : '$value', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant)),
+        Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
+        const SizedBox(height: 2),
+        Text(
+          value == null ? '-' : '$value',
+          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: value == null ? colorScheme.onSurfaceVariant : colorScheme.onSurface),
+        ),
       ],
+    );
+  }
+}
+
+/// Shown the first time someone has zero friends - a warm, one-time
+/// explanation of what to do next rather than a bare "no friends" label.
+class _EmptyLeaderboard extends StatelessWidget {
+  final String? friendCode;
+  final VoidCallback onAddFriend;
+  const _EmptyLeaderboard({required this.friendCode, required this.onAddFriend});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        children: [
+          Icon(Icons.people_outline_rounded, size: 40, color: colorScheme.onSurfaceVariant),
+          const SizedBox(height: 16),
+          Text(
+            'No friends yet',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            friendCode == null
+                ? "Add someone as a friend to see how you're both doing."
+                : "Add someone as a friend, or share your code $friendCode with them so they can add you.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.tonal(onPressed: onAddFriend, child: const Text('Add a friend')),
+        ],
+      ),
     );
   }
 }

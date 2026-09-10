@@ -29,6 +29,40 @@ class FriendNudgeChecker {
     _notificationsInitialized = true;
   }
 
+  /// Requests the runtime notification permission (Android 13+ requires
+  /// this explicitly; earlier versions grant it automatically at install).
+  /// Call this from a UI moment that has already explained *why*, not cold
+  /// - the OS prompt itself carries no context, so a friendly explainer
+  /// screen belongs immediately before this, not after.
+  static Future<bool> requestPermission() async {
+    await _ensureNotificationsInitialized();
+    final granted = await _notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+    return granted ?? false;
+  }
+
+  /// Shown the moment someone sends you a friend request - this is worth
+  /// notifying about immediately (unlike the daily nudge, it needs action),
+  /// so it bypasses the once-a-day throttle entirely.
+  static Future<void> notifyFriendRequestReceived(String fromUsername) async {
+    await _ensureNotificationsInitialized();
+    await _notifications.show(
+      id: 'friend_request_$fromUsername'.hashCode,
+      title: 'New friend request',
+      body: '$fromUsername wants to add you as a friend on Wird.',
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          'Friend activity',
+          channelDescription: 'Lets you know when a friend reads Qur’an or sends a request',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
+  }
+
   /// Checks every friend's [FriendStats.lastActiveDate] against today, and
   /// shows one local notification per friend who read today and hasn't
   /// already been nudged-about today on this device - see
@@ -63,6 +97,16 @@ class FriendNudgeChecker {
         ),
       );
       await service.markNotifiedToday(friendUid, today);
+    }
+
+    // New incoming friend requests - checked here too so this fires even
+    // when the app is closed (the Friends screen's own live listener
+    // already handles the in-app case; this is the "app not open" half).
+    final requests = await service.incomingRequestsOnce();
+    for (final request in requests) {
+      if (service.alreadyNotifiedOfRequest(request.fromUid)) continue;
+      await notifyFriendRequestReceived(request.fromUsername);
+      await service.markNotifiedOfRequest(request.fromUid);
     }
   }
 

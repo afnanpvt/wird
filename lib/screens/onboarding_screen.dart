@@ -5,6 +5,7 @@ import '../models/avatar_seeds.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
 import '../widgets/avatar_picker_grid.dart';
+import '../widgets/profile_avatar.dart';
 import 'root_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -90,7 +91,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     onNext: () => _goTo(3),
                     onBack: () => _goTo(1),
                   ),
-                  _WelcomeStep(name: _nameController.text.trim(), onFinish: _finish),
+                  _WelcomeStep(
+                    name: _nameController.text.trim(),
+                    avatarSeed: _selectedAvatarSeed,
+                    onFinish: _finish,
+                  ),
                 ],
               ),
             ),
@@ -349,9 +354,10 @@ class _ScriptCard extends StatelessWidget {
 
 class _WelcomeStep extends StatelessWidget {
   final String name;
+  final String avatarSeed;
   final VoidCallback onFinish;
 
-  const _WelcomeStep({required this.name, required this.onFinish});
+  const _WelcomeStep({required this.name, required this.avatarSeed, required this.onFinish});
 
   @override
   Widget build(BuildContext context) {
@@ -362,6 +368,10 @@ class _WelcomeStep extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // The avatar and name they just picked, shown back to them here -
+          // this is the moment onboarding actually pays off the identity
+          // they just built, instead of ending on a generic logo screen
+          // that ignores everything they just chose.
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
             duration: const Duration(milliseconds: 600),
@@ -370,12 +380,7 @@ class _WelcomeStep extends StatelessWidget {
               opacity: value,
               child: Transform.scale(scale: 0.9 + value * 0.1, child: child),
             ),
-            child: Image.asset(
-              Theme.of(context).brightness == Brightness.dark
-                  ? 'assets/images/logo_foreground_dark.png'
-                  : 'assets/images/logo_foreground.png',
-              height: 48,
-            ),
+            child: ProfileAvatar(seed: avatarSeed, size: 96),
           ),
           const SizedBox(height: 32),
           TweenAnimationBuilder<double>(

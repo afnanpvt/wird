@@ -43,6 +43,17 @@ class FriendProfile {
         'showAyahs': showAyahs,
         'showHasanat': showHasanat,
       };
+
+  FriendProfile copyWith({bool? friendsEnabled, bool? showStreak, bool? showAyahs, bool? showHasanat}) => FriendProfile(
+        uid: uid,
+        username: username,
+        friendCode: friendCode,
+        avatarSeed: avatarSeed,
+        friendsEnabled: friendsEnabled ?? this.friendsEnabled,
+        showStreak: showStreak ?? this.showStreak,
+        showAyahs: showAyahs ?? this.showAyahs,
+        showHasanat: showHasanat ?? this.showHasanat,
+      );
 }
 
 /// A friend's synced activity numbers (stats/{uid} in Firestore) - see

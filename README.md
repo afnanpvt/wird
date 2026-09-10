@@ -26,15 +26,15 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.7.1
+## what's new in 1.8.1
 
-- **seamless surah transitions**: swipe past the last ayah of any surah to celebrate with confetti and jump straight into reading the next surah
-- **ambient listening mode**: Now Playing screen now features dynamic ambient artwork glows, subtle background scrims, and surah loop toggles
-- **dedicated listen tab**: tap any surah or juz card to start playback instantly
-- **enhanced notification & lock-screen player**: surah titles and skip controls integrated directly into Android media cards with high-contrast custom cover art
-- **streak calendar clarity**: distinct visual rings per day differentiating grace-forgiven misses from hard-reset misses
+- **nightly recitation**: a single guided sequence through the authentically-established nightly recitations (ayat al-kursi, al-baqarah's last two verses, the three quls, al-kafirun, al-mulk), one step at a time with real progress, not five separate trips back to the reading screen
+- **popular reads on home**: a quiet shelf of commonly-read surahs (yaseen, ar-rahman, al-muzzammil, ayat al-kursi) for a quick one-tap read that doesn't touch your continue-reading spot
+- **send feedback**: a proper feedback form from the about screen, straight to the developer
+- an app-wide visual pass: consistent button shapes, card corners, spacing, and text sizing throughout, and every dialog replaced with a proper bottom sheet
+- fixed the jarring slide-up-then-fade transition between ayahs on the now playing screen, it's a plain cross-fade now
 
-and from 1.6.0: continuous surah playback, reciter selection (Yasser Al-Dosari, Sudais, Husary, Abdul Basit), and cross-navigation between surah and juz tabs.
+and from 1.7.1: seamless confetti-celebrated surah transitions while listening, ambient artwork glows on the now playing screen, a dedicated listen tab, and richer notification/lock-screen media controls.
 
 ## what it actually does
 
@@ -47,7 +47,10 @@ and from 1.6.0: continuous surah playback, reciter selection (Yasser Al-Dosari, 
 - tracks a daily streak with a grace day built in, because missing one day shouldn't erase everything you built, shown as a real calendar you can page through, not just a number
 - honest stats only, swipeable by today/this week/all time: ayahs read, time spent reading, best streak. no invented "% of quran read" number, because the app genuinely doesn't know your reading history from before you installed it, and pretending otherwise felt dishonest
 - suggests surah al-kahf on fridays, in place of the verse of the day, without touching your saved progress
+- a guided nightly recitation, one step at a time through the authentically-established nightly verses, with real progress
+- a quiet shelf of commonly-read surahs on the home screen for a quick one-tap read, without touching your continue-reading spot
 - search across surah, juz, and your saved verses from browse
+- send feedback straight from the about screen, no email client needed
 - a short first-time setup: your name (optional), pick a script, that's it, no accounts
 - a quiet first-run tour pointing at the three things worth knowing, shown once
 - a small celebration when you finish a surah or a juz, nothing that gets in the way of actually reading

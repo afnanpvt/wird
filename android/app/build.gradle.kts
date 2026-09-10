@@ -100,6 +100,18 @@ android {
             // whatever older devices flutter.minSdkVersion already covers.
             minSdk = maxOf(flutter.minSdkVersion, 23)
         }
+        // Identical to "dev" in every way except its own application ID and
+        // label - exists purely so two independent Friends identities can be
+        // installed side by side on the same test device (e.g. your own
+        // phone), so you can add "Wird Dev" and "Wird Dev 2" as friends to
+        // each other without needing a second physical device. Not for
+        // anyone but the developer's own testing.
+        create("dev2") {
+            dimension = "env"
+            applicationIdSuffix = ".dev2"
+            resValue("string", "app_name", "Wird Dev 2")
+            minSdk = maxOf(flutter.minSdkVersion, 23)
+        }
     }
 }
 

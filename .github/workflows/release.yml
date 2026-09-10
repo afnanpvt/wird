@@ -37,7 +37,7 @@ jobs:
           WIRD_KEY_PASSWORD: ${{ secrets.WIRD_KEY_PASSWORD }}
         run: |
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --flavor prod -t lib/main.dart
 
       # Two names for the same APK, on purpose:
       #
@@ -55,8 +55,8 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cd build/app/outputs/flutter-apk
-          cp app-release.apk "wird-${VERSION}.apk"
-          cp app-release.apk wird.apk
+          cp app-prod-release.apk "wird-${VERSION}.apk"
+          cp app-prod-release.apk wird.apk
 
       - name: Attach APK to the GitHub Release
         uses: softprops/action-gh-release@v2
@@ -103,7 +103,7 @@ jobs:
       - name: Build F-Droid repo index
         run: |
           mkdir -p fdroid/repo
-          cp build/app/outputs/flutter-apk/app-release.apk fdroid/repo/
+          cp build/app/outputs/flutter-apk/app-prod-release.apk fdroid/repo/
           cd fdroid
           fdroid update --create-metadata -v
 

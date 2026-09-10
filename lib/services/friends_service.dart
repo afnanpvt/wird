@@ -63,31 +63,17 @@ class FriendsService {
   String _generateFriendCode() =>
       'WIRD-${List.generate(5, (_) => _friendCodeChars[_rng.nextInt(_friendCodeChars.length)]).join()}';
 
-  // A modest, pleasant word-pair rather than "reader_4821" - still fully
-  // anonymous (no PII), just nicer to look at on a leaderboard.
-  static const _usernameAdjectives = ['noble', 'quiet', 'gentle', 'humble', 'steady', 'patient', 'sincere', 'devoted'];
-  static const _usernameNouns = ['seeker', 'reader', 'listener', 'traveler', 'reciter', 'companion'];
-
-  /// A candidate username the setup screen shows before the profile is
-  /// actually created, so the user can reroll it (see [generateUsername])
-  /// until they like one, rather than it being silently assigned. Purely
-  /// client-side/local until [createProfile] actually writes it.
-  String generateUsername() {
-    final adjective = _usernameAdjectives[_rng.nextInt(_usernameAdjectives.length)];
-    final noun = _usernameNouns[_rng.nextInt(_usernameNouns.length)];
-    return '$adjective-$noun-${10 + _rng.nextInt(90)}';
-  }
-
   /// One-time profile creation - publishes this device's already-chosen
-  /// local avatar (see AppState.avatarSeed / models/avatar_seeds.dart) and
-  /// the username the user confirmed on the setup screen (see
-  /// [generateUsername]) to Firestore under a freshly generated friend
-  /// code. This is what "opting in to Friends" actually does now:
-  /// avatar/name already exist locally regardless of Friends (see the
-  /// design spec's "Feature entry point" section, revised) - this call
-  /// just publishes them. Retries friend-code generation on the
-  /// (practically negligible) chance of a collision with an existing code.
-  Future<FriendProfile> createProfile({required String avatarSeed, required String username}) async {
+  /// local avatar and name (see AppState.avatarSeed/userName) to Firestore
+  /// under a freshly generated friend code. This is what "opting in to
+  /// Friends" actually does now: avatar/name already exist locally
+  /// regardless of Friends (see the design spec's "Feature entry point"
+  /// section, revised) - this call just publishes them. There is no
+  /// separate generated username; friends see the real name someone
+  /// chose to be called, which is why Friends setup requires one to be
+  /// set first (see _FriendsSetup's name-prompt step). Retries friend-code
+  /// generation on the (practically negligible) chance of a collision.
+  Future<FriendProfile> createProfile({required String avatarSeed, required String displayName}) async {
     await ensureSignedIn();
     for (var attempt = 0; attempt < 5; attempt++) {
       final code = _generateFriendCode();
@@ -96,7 +82,7 @@ class FriendsService {
 
       final profile = FriendProfile(
         uid: _uid,
-        username: username,
+        displayName: displayName,
         friendCode: code,
         avatarSeed: avatarSeed,
         friendsEnabled: true,
@@ -117,6 +103,15 @@ class FriendsService {
     final doc = await _ownProfileDoc.get();
     if (!doc.exists) return;
     await _ownProfileDoc.update({'avatarSeed': avatarSeed});
+  }
+
+  /// Keeps the published name in sync if it's changed later from the
+  /// Profile screen, after Friends is already enabled.
+  Future<void> updateDisplayName(String displayName) async {
+    if (_auth.currentUser == null) return;
+    final doc = await _ownProfileDoc.get();
+    if (!doc.exists) return;
+    await _ownProfileDoc.update({'displayName': displayName});
   }
 
   Future<void> setOnline(bool online) => _ownProfileDoc.update({'friendsEnabled': online});
@@ -173,7 +168,7 @@ class FriendsService {
 
     final myProfile = await getOwnProfile();
     await _firestore.collection('friendRequests').doc(targetUid).collection('incoming').doc(_uid).set({
-      'fromUsername': myProfile?.username ?? '',
+      'fromDisplayName': myProfile?.displayName ?? '',
       'sentAt': FieldValue.serverTimestamp(),
     });
   }

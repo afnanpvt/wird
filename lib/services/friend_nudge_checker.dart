@@ -45,12 +45,12 @@ class FriendNudgeChecker {
   /// Shown the moment someone sends you a friend request - this is worth
   /// notifying about immediately (unlike the daily nudge, it needs action),
   /// so it bypasses the once-a-day throttle entirely.
-  static Future<void> notifyFriendRequestReceived(String fromUsername) async {
+  static Future<void> notifyFriendRequestReceived(String fromDisplayName) async {
     await _ensureNotificationsInitialized();
     await _notifications.show(
-      id: 'friend_request_$fromUsername'.hashCode,
+      id: 'friend_request_$fromDisplayName'.hashCode,
       title: 'New friend request',
-      body: '$fromUsername wants to add you as a friend on Wird.',
+      body: '$fromDisplayName sent you a friend request',
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
@@ -85,7 +85,7 @@ class FriendNudgeChecker {
       await _notifications.show(
         id: friendUid.hashCode,
         title: 'Time to read?',
-        body: '${profile.username} just read Qur’an today — your turn?',
+        body: '${profile.displayName} just read Qur’an today — your turn?',
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
@@ -105,7 +105,7 @@ class FriendNudgeChecker {
     final requests = await service.incomingRequestsOnce();
     for (final request in requests) {
       if (service.alreadyNotifiedOfRequest(request.fromUid)) continue;
-      await notifyFriendRequestReceived(request.fromUsername);
+      await notifyFriendRequestReceived(request.fromDisplayName);
       await service.markNotifiedOfRequest(request.fromUid);
     }
   }

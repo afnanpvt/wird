@@ -20,8 +20,27 @@ class CoachTour {
     var index = 0;
     late Future<void> Function() showStep;
 
+    // The tour scrolls each target into view as it goes (see showStep
+    // below) and never scrolls back - without this, finishing (or
+    // skipping) the tour on a step that scrolled the page down leaves
+    // Home parked mid-page instead of at its natural top. Takes the
+    // current (not yet advanced) step's context - called right before
+    // index is incremented past the last valid entry.
+    void resetScroll() {
+      final currentTargetContext = steps[index].targetKey.currentContext;
+      if (currentTargetContext == null) return;
+      final scrollable = Scrollable.maybeOf(currentTargetContext);
+      scrollable?.position.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+
     void closeAndAdvance() {
       entry.remove();
+      final isLastStep = index == steps.length - 1;
+      if (isLastStep) resetScroll();
       index++;
       if (index < steps.length) {
         WidgetsBinding.instance.addPostFrameCallback((_) => showStep());
@@ -53,6 +72,7 @@ class CoachTour {
           onNext: closeAndAdvance,
           onSkip: () {
             entry.remove();
+            resetScroll();
             onDone?.call();
           },
         ),

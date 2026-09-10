@@ -62,28 +62,31 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(elevation: 0, title: const Text('Friends')),
-      body: FutureBuilder<FriendProfile?>(
-        future: _profileFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final profile = snapshot.data;
-          if (profile == null) {
-            return _FriendsSetup(service: _service, onComplete: _onSetupComplete);
-          }
-          return _FriendsHome(service: _service, profile: profile);
-        },
-      ),
+    // No outer Scaffold/AppBar here - both _FriendsSetup and _FriendsHome
+    // below already have their own (the latter's carries the settings
+    // gear icon), so this used to stack two "Friends" headers on top of
+    // each other.
+    return FutureBuilder<FriendProfile?>(
+      future: _profileFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final profile = snapshot.data;
+        if (profile == null) {
+          return _FriendsSetup(service: _service, onComplete: _onSetupComplete);
+        }
+        return _FriendsHome(service: _service, profile: profile);
+      },
     );
   }
 }
 
-/// One tap to opt in: publishes the avatar already chosen during onboarding
-/// (or from the Profile screen) under a freshly generated username and
-/// friend code. See the class doc above.
+/// One tap to opt in: publishes the avatar and name already set on the
+/// Profile screen under a freshly generated friend code. If no name is
+/// set yet, asks for one first - Friends fundamentally needs a name to
+/// show to other people, unlike the rest of the app where it's optional.
+/// See the class doc above.
 class _FriendsSetup extends StatefulWidget {
   final FriendsService service;
   final ValueChanged<FriendProfile> onComplete;
@@ -97,23 +100,34 @@ class _FriendsSetup extends StatefulWidget {
 class _FriendsSetupState extends State<_FriendsSetup> {
   bool _creating = false;
   String? _error;
-  late String _candidateUsername;
+  late final TextEditingController _nameController;
 
   @override
   void initState() {
     super.initState();
-    _candidateUsername = widget.service.generateUsername();
+    _nameController = TextEditingController(text: context.read<AppState>().userName ?? '');
   }
 
-  void _reroll() => setState(() => _candidateUsername = widget.service.generateUsername());
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
 
   Future<void> _confirm(String avatarSeed) async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = "Friends needs a name to show your friends - what should we call you?");
+      return;
+    }
     setState(() {
       _creating = true;
       _error = null;
     });
     try {
-      final profile = await widget.service.createProfile(avatarSeed: avatarSeed, username: _candidateUsername);
+      final appState = context.read<AppState>();
+      if (appState.userName != name) await appState.saveName(name);
+      final profile = await widget.service.createProfile(avatarSeed: avatarSeed, displayName: name);
       if (!mounted) return;
       widget.onComplete(profile);
     } catch (e, stack) {
@@ -130,66 +144,66 @@ class _FriendsSetupState extends State<_FriendsSetup> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final avatarSeed = context.watch<AppState>().avatarSeed;
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          if (avatarSeed != null) Center(child: ProfileAvatar(seed: avatarSeed, size: 72)),
-          const SizedBox(height: 20),
-          Text(
-            'Read together, not alone',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Add a few friends and gently nudge each other to keep reading. Nothing about what you read is ever shared - just your streak, if you choose to show it.",
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 28),
-          Center(
-            child: Column(
-              children: [
-                Text("You'll go by", style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant)),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(_candidateUsername, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.shuffle_rounded, size: 20),
-                      tooltip: 'Try another name',
-                      onPressed: _creating ? null : _reroll,
-                    ),
-                  ],
-                ),
-              ],
+    return Scaffold(
+      appBar: AppBar(elevation: 0, title: const Text('Friends')),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            if (avatarSeed != null) Center(child: ProfileAvatar(seed: avatarSeed, size: 72)),
+            const SizedBox(height: 20),
+            Text(
+              'Read together, not alone',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
             ),
-          ),
-          const SizedBox(height: 20),
-          if (_error != null) ...[
-            Text(_error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            Text(
+              "Add a few friends and gently nudge each other to keep reading. Nothing about what you read is ever shared - just your streak, if you choose to show it.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 28),
+            Text('YOUR NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _nameController,
+              textCapitalization: TextCapitalization.words,
+              autocorrect: false,
+              enableSuggestions: false,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                hintText: 'What should we call you?',
+                filled: true,
+                fillColor: colorScheme.surfaceContainerLow,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (_error != null) ...[
+              Text(_error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
+              const SizedBox(height: 12),
+            ],
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.onSurface,
+                foregroundColor: colorScheme.surface,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              onPressed: (avatarSeed == null || _creating) ? null : () => _confirm(avatarSeed),
+              child: _creating
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.surface),
+                    )
+                  : const Text("Let's go"),
+            ),
           ],
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colorScheme.onSurface,
-              foregroundColor: colorScheme.surface,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-            ),
-            onPressed: (avatarSeed == null || _creating) ? null : () => _confirm(avatarSeed),
-            child: _creating
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.surface),
-                  )
-                : const Text("Let's go"),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -198,6 +212,58 @@ class _FriendsSetupState extends State<_FriendsSetup> {
 /// Shown once, right after Friends is enabled - explains why we're about
 /// to ask for notification permission before the OS dialog (which carries
 /// no context of its own) actually appears.
+/// A real confirmation moment for sending a friend request - a snackbar
+/// disappears too fast and doesn't feel like anything happened; this gives
+/// the action the same visual weight as the rest of the Friends flow.
+class _RequestSentSheet extends StatelessWidget {
+  const _RequestSentSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: colorScheme.primary.withValues(alpha: 0.15)),
+              child: Icon(Icons.mark_email_read_rounded, color: colorScheme.primary, size: 28),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Request sent',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "They'll see it next time they open Wird - once they accept, you'll both show up on each other's leaderboard.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 24),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.onSurface,
+              foregroundColor: colorScheme.surface,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NotificationsExplainerSheet extends StatelessWidget {
   const _NotificationsExplainerSheet();
 
@@ -275,7 +341,11 @@ class _FriendsHomeState extends State<_FriendsHome> {
     try {
       await widget.service.sendFriendRequestByCode(code);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request sent')));
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => const _RequestSentSheet(),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -354,7 +424,7 @@ class _MinimalProfileRow extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            profile.username,
+            profile.displayName,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             overflow: TextOverflow.ellipsis,
           ),
@@ -622,7 +692,7 @@ class _RequestRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(request.fromUsername, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(request.fromDisplayName, style: const TextStyle(fontWeight: FontWeight.w600)),
                 Text('wants to add you', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
               ],
             ),
@@ -728,8 +798,6 @@ class _LeaderboardRow extends StatelessWidget {
   final LeaderboardEntry entry;
   const _LeaderboardRow({required this.rank, required this.entry});
 
-  static const _medals = {1: '🥇', 2: '🥈', 3: '🥉'};
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -739,17 +807,12 @@ class _LeaderboardRow extends StatelessWidget {
       decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
       child: Row(
         children: [
-          SizedBox(
-            width: 28,
-            child: _medals.containsKey(rank)
-                ? Text(_medals[rank]!, style: const TextStyle(fontSize: 18))
-                : Text('$rank', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colorScheme.onSurfaceVariant)),
-          ),
-          const SizedBox(width: 6),
+          _RankBadge(rank: rank),
+          const SizedBox(width: 10),
           ProfileAvatar(seed: entry.avatarSeed, size: 40),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(entry.username, style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+            child: Text(entry.displayName, style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
           ),
           _StatColumn(icon: Icons.local_fire_department_rounded, value: entry.streak, label: 'streak'),
           const SizedBox(width: 14),
@@ -758,6 +821,42 @@ class _LeaderboardRow extends StatelessWidget {
           _StatColumn(icon: Icons.auto_awesome_rounded, value: entry.hasanatThisWeek, label: 'hasanat'),
         ],
       ),
+    );
+  }
+}
+
+/// Drawn rank indicator - a tinted circle with a trophy glyph for the top
+/// 3, a plain number otherwise. Deliberately not emoji medals: those
+/// render as a different picture on every OS/keyboard skin, which reads as
+/// inconsistent rather than polished.
+class _RankBadge extends StatelessWidget {
+  final int rank;
+  const _RankBadge({required this.rank});
+
+  static const _tints = {
+    1: Color(0xFFD4AF37), // gold
+    2: Color(0xFFA8A9AD), // silver
+    3: Color(0xFFB08D57), // bronze
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final tint = _tints[rank];
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: tint == null
+          ? Center(
+              child: Text(
+                '$rank',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colorScheme.onSurfaceVariant),
+              ),
+            )
+          : Container(
+              decoration: BoxDecoration(shape: BoxShape.circle, color: tint.withValues(alpha: 0.18)),
+              child: Icon(Icons.emoji_events_rounded, size: 16, color: tint),
+            ),
     );
   }
 }

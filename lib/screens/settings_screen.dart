@@ -43,9 +43,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _friendsService?.updateAvatarSeed(seed);
   }
 
-  void _confirmName() {
-    context.read<AppState>().saveName(_nameController.text);
+  Future<void> _confirmName() async {
+    final name = _nameController.text.trim();
     setState(() => _editingName = false);
+    await context.read<AppState>().saveName(name);
+    // Keeps the published Friends profile's name in sync, if Friends is
+    // already enabled - a no-op otherwise (see updateDisplayName's doc).
+    if (name.isNotEmpty) await _friendsService?.updateDisplayName(name);
   }
 
   static const _themeLabels = {

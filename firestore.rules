@@ -35,6 +35,18 @@ service cloud.firestore {
       // write users/{them}/friends/{me} only if a friendRequests doc
       // proves {them} actually has a pending request FROM me - i.e. I
       // can't fabricate a friendship the other side never asked for.
+      //
+      // Path naming to get right here: {uid} is whose friends subcollection
+      // this write targets, {friendUid} is the entry being written inside
+      // it. accepter=A calling acceptFriendRequest(fromUid: B) writes:
+      //   users/A/friends/B   -> uid=A, friendUid=B  (A's own entry)
+      //   users/B/friends/A   -> uid=B, friendUid=A  (B's mirrored entry)
+      // For that second write, request.auth.uid (A) equals {friendUid}, and
+      // the request being accepted lives at friendRequests/A/incoming/B -
+      // i.e. friendRequests/{friendUid}/incoming/{uid}, NOT
+      // friendRequests/{uid}/incoming/{friendUid} (an earlier, backwards
+      // version of this rule checked the wrong path and only happened to
+      // work when a mutual/crossed request existed on both sides).
       match /friends/{friendUid} {
         allow read: if request.auth != null;
         allow delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == friendUid);
@@ -44,15 +56,16 @@ service cloud.firestore {
         // already exists (e.g. a retried accept, or a mutual/crossed
         // request where both sides' accept batches touch the same doc).
         // Without an update rule here, that retry would silently fail with
-        // permission-denied - this was a real bug, not just missing error
-        // handling in the client.
+        // permission-denied.
         allow create, update: if request.auth != null && (
           // Writing my own friends/{friendUid} entry.
           (request.auth.uid == uid && request.auth.uid != friendUid) ||
           // Writing the *other* side's mirrored entry - only allowed if
-          // that request I'm claiming to accept actually exists.
+          // that request I'm claiming to accept actually exists at
+          // friendRequests/{me}/incoming/{them}, where "me" here is
+          // request.auth.uid (== friendUid) and "them" is uid.
           (request.auth.uid == friendUid &&
-           exists(/databases/$(database)/documents/friendRequests/$(uid)/incoming/$(friendUid)))
+           exists(/databases/$(database)/documents/friendRequests/$(friendUid)/incoming/$(uid)))
         );
       }
     }

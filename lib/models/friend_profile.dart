@@ -4,7 +4,7 @@
 /// different document and refresh far more often.
 class FriendProfile {
   final String uid;
-  final String username;
+  final String displayName;
   final String friendCode;
   final String avatarSeed;
   final bool friendsEnabled;
@@ -14,7 +14,7 @@ class FriendProfile {
 
   const FriendProfile({
     required this.uid,
-    required this.username,
+    required this.displayName,
     required this.friendCode,
     required this.avatarSeed,
     required this.friendsEnabled,
@@ -25,7 +25,7 @@ class FriendProfile {
 
   factory FriendProfile.fromMap(String uid, Map<String, dynamic> map) => FriendProfile(
         uid: uid,
-        username: map['username'] as String? ?? '',
+        displayName: map['displayName'] as String? ?? '',
         friendCode: map['friendCode'] as String? ?? '',
         avatarSeed: map['avatarSeed'] as String? ?? '',
         friendsEnabled: map['friendsEnabled'] as bool? ?? false,
@@ -35,7 +35,7 @@ class FriendProfile {
       );
 
   Map<String, dynamic> toMap() => {
-        'username': username,
+        'displayName': displayName,
         'friendCode': friendCode,
         'avatarSeed': avatarSeed,
         'friendsEnabled': friendsEnabled,
@@ -46,7 +46,7 @@ class FriendProfile {
 
   FriendProfile copyWith({bool? friendsEnabled, bool? showStreak, bool? showAyahs, bool? showHasanat}) => FriendProfile(
         uid: uid,
-        username: username,
+        displayName: displayName,
         friendCode: friendCode,
         avatarSeed: avatarSeed,
         friendsEnabled: friendsEnabled ?? this.friendsEnabled,
@@ -113,7 +113,7 @@ class FriendStats {
 /// re-check a show* flag - it just renders a dash wherever the value is null.
 class LeaderboardEntry {
   final String uid;
-  final String username;
+  final String displayName;
   final String avatarSeed;
   final int? streak;
   final int? ayahsThisWeek;
@@ -121,7 +121,7 @@ class LeaderboardEntry {
 
   const LeaderboardEntry({
     required this.uid,
-    required this.username,
+    required this.displayName,
     required this.avatarSeed,
     required this.streak,
     required this.ayahsThisWeek,
@@ -130,7 +130,7 @@ class LeaderboardEntry {
 
   factory LeaderboardEntry.from(FriendProfile profile, FriendStats stats) => LeaderboardEntry(
         uid: profile.uid,
-        username: profile.username,
+        displayName: profile.displayName,
         avatarSeed: profile.avatarSeed,
         streak: profile.showStreak ? stats.currentStreak : null,
         ayahsThisWeek: profile.showAyahs ? stats.ayahsThisWeek : null,
@@ -141,10 +141,10 @@ class LeaderboardEntry {
 /// An incoming friend request, shown so the recipient can accept/decline.
 class FriendRequest {
   final String fromUid;
-  final String fromUsername;
+  final String fromDisplayName;
 
-  const FriendRequest({required this.fromUid, required this.fromUsername});
+  const FriendRequest({required this.fromUid, required this.fromDisplayName});
 
   factory FriendRequest.fromMap(String fromUid, Map<String, dynamic> map) =>
-      FriendRequest(fromUid: fromUid, fromUsername: map['fromUsername'] as String? ?? '');
+      FriendRequest(fromUid: fromUid, fromDisplayName: map['fromDisplayName'] as String? ?? '');
 }

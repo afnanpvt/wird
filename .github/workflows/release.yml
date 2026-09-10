@@ -37,7 +37,7 @@ jobs:
           WIRD_KEY_PASSWORD: ${{ secrets.WIRD_KEY_PASSWORD }}
         run: |
           flutter pub get
-          flutter build apk --release --flavor prod -t lib/main.dart
+          flutter build apk --release --flavor prod -t lib/main.dart --dart-define=FRIENDS_ENABLED=true
 
       # Two names for the same APK, on purpose:
       #

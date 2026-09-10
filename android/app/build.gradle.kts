@@ -89,15 +89,16 @@ android {
     productFlavors {
         create("prod") {
             dimension = "env"
+            // workmanager (used by the Friends nudge background check)
+            // requires API 23+. Friends now ships in prod too (opt-in,
+            // gated behind the FRIENDS_ENABLED dart-define set in the
+            // release workflow), so prod needs the same floor as dev.
+            minSdk = maxOf(flutter.minSdkVersion, 23)
         }
         create("dev") {
             dimension = "env"
             applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Wird Dev")
-            // workmanager (used by the Friends nudge background check)
-            // requires API 23+. Bumped only for dev, not prod - prod never
-            // compiles the Friends feature in, so it keeps reaching
-            // whatever older devices flutter.minSdkVersion already covers.
             minSdk = maxOf(flutter.minSdkVersion, 23)
         }
         // Identical to "dev" in every way except its own application ID and

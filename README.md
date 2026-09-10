@@ -8,7 +8,7 @@ a quran reading app for one person: whoever's holding the phone.
 
 wird (ورد) is the arabic word for a person's regular, committed portion of quran recitation. the daily habit you keep, not the one you meant to start someday. that's the whole idea here: read a little, every day, and have something honest keep track of it for you.
 
-it's a habit tracker wearing a quran app's clothes, or maybe the other way around. by default there's no leaderboard, no notifications guilting you at 9pm, and nobody but you will ever see your streak. as of 1.9.0 there's an entirely optional friends feature if you want a little accountability, more on that below.
+it's a habit tracker wearing a quran app's clothes, or maybe the other way around. by default there's no leaderboard, no notifications guilting you at 9pm, and nobody but you will ever see your streak. as of 1.9.0 there's an entirely optional friends feature if you want a little accountability, see "the friends feature" below.
 
 ## why build another quran app
 
@@ -28,7 +28,7 @@ either way android will warn you about installing from outside the play store. e
 
 ## what's new in 1.9.0
 
-- **friends, entirely optional**: don't open the friends tab and nothing about you ever leaves your phone, same as before. if you do want it: a friend code to add people you actually know, a small leaderboard of streaks/ayahs/hasanat among just the two (or few) of you, and a nudge when a friend reads. see "the friends feature" below for exactly how this works and what it costs you privacy-wise
+- **friends, entirely optional**: don't open the friends tab and nothing about you ever leaves your phone, same as before. if you do want it: a friend code to add people you actually know, a small leaderboard of streaks/ayahs/hasanat among just the two (or few) of you, and a nudge when a friend reads. see "the friends feature" below
 - **nightly recitation**: a single guided sequence through the authentically-established nightly recitations (ayat al-kursi, al-baqarah's last two verses, the three quls, al-kafirun, al-mulk), one step at a time with real progress, not five separate trips back to the reading screen
 - **popular reads on home**: a quiet shelf of commonly-read surahs (yaseen, ar-rahman, al-muzzammil, ayat al-kursi) for a quick one-tap read that doesn't touch your continue-reading spot
 - **send feedback**: a proper feedback form from the about screen, straight to the developer
@@ -71,11 +71,9 @@ another one as of 1.9.0: the friends feature, covered fully below.
 
 ## the friends feature
 
-this is the only part of wird that touches a server, and it's entirely opt-in: the app never signs you in or creates anything until you open the friends tab yourself and go through setup (pick a name, get a friend code). don't open that tab, and wird behaves exactly like the rest of this readme describes, fully offline.
+entirely opt-in: nothing happens until you open the friends tab yourself and go through setup (pick a name, get a friend code). don't open that tab, and wird behaves exactly like the rest of this readme describes, fully offline.
 
-if you do set it up: you get a friend code to share with people you actually know, a small leaderboard of streaks/ayahs/hasanat between you and whoever you've added, and a nudge when a friend reads. there's no way to browse or discover other users, no public profile, nothing searchable, adding someone requires their code.
-
-how it's built, plainly: there's no backend server i run, just a free-tier firestore database with security rules instead of a server-side program deciding what's allowed. that keeps this feature at zero cost to run, which matters to me, but it does shape what's possible. the honest caveat: those rules let any signed-in friends user read any other signed-in friends user's public profile and stats fields, not strictly limited to people who've added each other. the app's own screens only ever show that to actual friends, but someone with the technical means to inspect the app's network traffic could read another user's name, avatar, streak, and hasanat total even without adding them. there's no private messaging, no real name required (you pick what shows), no location, and nothing you haven't explicitly chosen to make visible to friends in the first place, but "friends-only" here is enforced by the app's ui, not by the database underneath it. if that tradeoff doesn't sit right with you, the honest answer is: don't use this part of the app. everything else stays exactly as private as always.
+if you do set it up: you get a friend code to share with people you actually know, a small leaderboard of streaks/ayahs/hasanat between you and whoever you've added, and a nudge when a friend reads. there's no way to browse or discover other users, no public profile, nothing searchable, adding someone requires their code. no private messaging, no real name required (you pick what shows), no location.
 
 ## contributing
 

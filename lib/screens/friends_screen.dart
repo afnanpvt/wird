@@ -609,13 +609,18 @@ class _AddFriendSheetState extends State<_AddFriendSheet> {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: 1),
             decoration: InputDecoration(
-              hintText: 'WIRD-7F3K2',
+              // Every code starts with the fixed "WIRD-" prefix - showing it
+              // as a static label rather than making someone type it every
+              // time (they only ever enter the 5-character suffix).
+              prefixText: 'WIRD-',
+              prefixStyle: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: 1, color: colorScheme.onSurfaceVariant),
+              hintText: '7F3K2',
               filled: true,
               fillColor: colorScheme.surfaceContainerLow,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            onSubmitted: (value) => Navigator.of(context).pop(value),
+            onSubmitted: (value) => Navigator.of(context).pop('WIRD-$value'),
           ),
           const SizedBox(height: 20),
           FilledButton(
@@ -625,7 +630,7 @@ class _AddFriendSheetState extends State<_AddFriendSheet> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             ),
-            onPressed: () => Navigator.of(context).pop(_controller.text),
+            onPressed: () => Navigator.of(context).pop('WIRD-${_controller.text}'),
             child: const Text('Send request'),
           ),
         ],
@@ -736,6 +741,11 @@ class _Leaderboard extends StatelessWidget {
 
   Future<List<LeaderboardEntry>> _load(List<String> friendUids) async {
     final entries = <LeaderboardEntry>[];
+    final ownProfile = await service.getOwnProfile();
+    if (ownProfile != null) {
+      final ownStats = await service.getStats(ownProfile.uid);
+      entries.add(LeaderboardEntry.forSelf(ownProfile, ownStats));
+    }
     for (final uid in friendUids) {
       final profile = await service.getProfile(uid);
       if (profile == null || !profile.friendsEnabled) continue;
@@ -804,7 +814,11 @@ class _LeaderboardRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: entry.isSelf ? colorScheme.primary.withValues(alpha: 0.1) : colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: entry.isSelf ? Border.all(color: colorScheme.primary.withValues(alpha: 0.4)) : null,
+      ),
       child: Row(
         children: [
           _RankBadge(rank: rank),
@@ -812,7 +826,11 @@ class _LeaderboardRow extends StatelessWidget {
           ProfileAvatar(seed: entry.avatarSeed, size: 40),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(entry.displayName, style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+            child: Text(
+              entry.isSelf ? '${entry.displayName} (you)' : entry.displayName,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           _StatColumn(icon: Icons.local_fire_department_rounded, value: entry.streak, label: 'streak'),
           const SizedBox(width: 14),

@@ -49,8 +49,8 @@ class FriendNudgeChecker {
     await _ensureNotificationsInitialized();
     await _notifications.show(
       id: 'friend_request_$fromDisplayName'.hashCode,
-      title: 'New friend request',
-      body: '$fromDisplayName sent you a friend request',
+      title: 'A new companion on the journey 🌙',
+      body: '$fromDisplayName wants to read alongside you - open Wird to say yes.',
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,

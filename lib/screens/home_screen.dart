@@ -8,6 +8,7 @@ import '../models/ayah.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
 import '../widgets/profile_avatar.dart';
+import 'nightly_recitation_screen.dart';
 import 'reading_screen.dart';
 import 'settings_screen.dart';
 import 'streak_calendar_screen.dart';
@@ -171,6 +172,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 20),
               DateTime.now().weekday == DateTime.friday ? const _FridayCard() : _VerseOfTheDay(verse: verse),
+              const SizedBox(height: 20),
+              const _NightlyRecitationCard(),
+              const SizedBox(height: 20),
+              const _PopularReadsShelf(),
               const SizedBox(height: 20),
               const _StatsCard(),
             ],
@@ -719,6 +724,154 @@ class _FridayCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The five authentically-established nightly recitations (see
+/// docs/superpowers/specs - hadith research backing each item), shown as a
+/// checklist rather than one tap target since the hadith describe them as
+/// done together in one night's routine, not rotated. Each item still
+/// deliberately doesn't move the continue-reading position - see
+/// [ReadingScreen.updatesContinuePoint] - a quick nightly recitation isn't
+/// "where you're up to" in the Quran.
+class _NightlyRecitationCard extends StatelessWidget {
+  const _NightlyRecitationCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const NightlyRecitationScreen()),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 1.2, sigmaY: 1.2),
+                child: Image.asset('assets/images/nightly_recitation.png', fit: BoxFit.cover),
+              ),
+            ),
+            const Positioned.fill(child: ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.45))),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'TONIGHT',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: Colors.white.withValues(alpha: 0.85)),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Seven recitations the Prophet ﷺ kept before sleep, from Sahih al-Bukhari and other authentic reports.",
+                    style: TextStyle(fontSize: 14, height: 1.5, color: Colors.white),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Begin tonight\'s recitation',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white.withValues(alpha: 0.85)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PopularRead {
+  final int surahNumber;
+  final int ayahNumber;
+  final String label;
+  const _PopularRead({required this.surahNumber, required this.ayahNumber, required this.label});
+}
+
+/// A quick-jump shelf to a handful of well-known, widely-read surahs/verses
+/// - deliberately unnamed/unlabelled as a section (no "recommended" or
+/// "popular" heading), just a row of cards someone can recognize and tap.
+/// updatesContinuePoint: false throughout, same as the Friday card above -
+/// a quick visit here must never overwrite someone's actual place in the
+/// Quran.
+class _PopularReadsShelf extends StatelessWidget {
+  const _PopularReadsShelf();
+
+  static const _reads = [
+    _PopularRead(surahNumber: 36, ayahNumber: 1, label: 'Yaseen'),
+    _PopularRead(surahNumber: 55, ayahNumber: 1, label: 'Ar-Rahman'),
+    _PopularRead(surahNumber: 73, ayahNumber: 1, label: 'Al-Muzzammil'),
+    _PopularRead(surahNumber: 2, ayahNumber: 255, label: 'Ayat al-Kursi'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 64,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _reads.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) => _PopularReadCard(read: _reads[index]),
+      ),
+    );
+  }
+}
+
+class _PopularReadCard extends StatelessWidget {
+  final _PopularRead read;
+  const _PopularReadCard({required this.read});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final surah = context.watch<AppState>().quran.surahByNumber(read.surahNumber);
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ReadingScreen(
+              initialSurahNumber: read.surahNumber,
+              initialAyahNumber: read.ayahNumber,
+              updatesContinuePoint: false,
+            ),
+          ),
+        ),
+        child: Container(
+          width: 132,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.centerLeft,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(read.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              Text(
+                surah.englishName,
+                style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );

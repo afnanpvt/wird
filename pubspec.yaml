@@ -96,6 +96,7 @@ flutter:
     - assets/images/logo_foreground.png
     - assets/images/logo_foreground_dark.png
     - assets/images/jumuah_cave.jpg
+    - assets/images/nightly_recitation.png
     - assets/images/icon.png
     - assets/images/notification_cover.png
 

@@ -118,6 +118,7 @@ class LeaderboardEntry {
   final int? streak;
   final int? ayahsThisWeek;
   final int? hasanatThisWeek;
+  final bool isSelf;
 
   const LeaderboardEntry({
     required this.uid,
@@ -126,8 +127,11 @@ class LeaderboardEntry {
     required this.streak,
     required this.ayahsThisWeek,
     required this.hasanatThisWeek,
+    this.isSelf = false,
   });
 
+  /// A friend's row - fields they've chosen to hide (show*) come through
+  /// as null, since that setting controls what a friend sees of them.
   factory LeaderboardEntry.from(FriendProfile profile, FriendStats stats) => LeaderboardEntry(
         uid: profile.uid,
         displayName: profile.displayName,
@@ -135,6 +139,18 @@ class LeaderboardEntry {
         streak: profile.showStreak ? stats.currentStreak : null,
         ayahsThisWeek: profile.showAyahs ? stats.ayahsThisWeek : null,
         hasanatThisWeek: profile.showHasanat ? stats.hasanatThisWeek : null,
+      );
+
+  /// Your own row - the show* flags only govern what friends see of you,
+  /// not what you see of yourself, so this always uses the real numbers.
+  factory LeaderboardEntry.forSelf(FriendProfile profile, FriendStats stats) => LeaderboardEntry(
+        uid: profile.uid,
+        displayName: profile.displayName,
+        avatarSeed: profile.avatarSeed,
+        streak: stats.currentStreak,
+        ayahsThisWeek: stats.ayahsThisWeek,
+        hasanatThisWeek: stats.hasanatThisWeek,
+        isSelf: true,
       );
 }
 

@@ -26,7 +26,11 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.9.0
+## what's new in 1.9.1
+
+- the nightly recitation card on home now only shows up in the evening and overnight, since it's meant for that part of the day, not all day
+
+and from 1.9.0:
 
 - **friends, entirely optional**: don't open the friends tab and nothing about you ever leaves your phone, same as before. if you do want it: a friend code to add people you actually know, a small leaderboard of streaks/ayahs/hasanat among just the two (or few) of you, and a nudge when a friend reads. see "the friends feature" below
 - **nightly recitation**: a guided sequence through the authentically-established nightly recitations (ayat al-kursi, al-baqarah's last two verses, the three quls, al-kafirun, al-mulk), one step at a time with real progress

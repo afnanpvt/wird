@@ -402,6 +402,13 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   /// the forward arrow (tapped on the last ayah) and the swipe-driven end
   /// card, so both entry points feel like the exact same moment. [_advancing]
   /// makes it idempotent against double taps or re-triggering mid-flight.
+  ///
+  /// Replaces this screen in the stack rather than pushing on top of it -
+  /// pushing meant chaining through several surahs piled up one ReadingScreen
+  /// per surah, so "I'm done" (a plain pop) landed back on the *previous*
+  /// completed surah instead of wherever the chain actually started.
+  /// Replacing keeps the stack at exactly one ReadingScreen no matter how
+  /// many surahs in a row someone reads through.
   void _celebrateAndAdvance(Duration dwell) {
     if (_advancing || !_hasNextSurah) return;
     _advancing = true;
@@ -409,7 +416,7 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     // Let the burst actually be seen before the slide transition covers it.
     Future.delayed(dwell, () async {
       if (!mounted) return;
-      await Navigator.of(context).push(_surahTransitionRoute(
+      await Navigator.of(context).pushReplacement(_surahTransitionRoute(
         ReadingScreen(
           initialSurahNumber: widget.initialSurahNumber + 1,
           initialAyahNumber: 1,
@@ -418,8 +425,6 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
           onPositionChanged: widget.onPositionChanged,
         ),
       ));
-      // Back-navigation lands here again; allow celebrating onward once more.
-      if (mounted) _advancing = false;
     });
   }
 

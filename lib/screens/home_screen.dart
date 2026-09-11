@@ -7,28 +7,12 @@ import 'package:provider/provider.dart';
 import '../models/ayah.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
+import '../utils/stat_formatting.dart';
 import '../widgets/profile_avatar.dart';
 import 'nightly_recitation_screen.dart';
 import 'reading_screen.dart';
 import 'settings_screen.dart';
 import 'streak_calendar_screen.dart';
-
-String _formatDuration(int totalSeconds) {
-  final hours = totalSeconds ~/ 3600;
-  final minutes = (totalSeconds % 3600) ~/ 60;
-  if (hours > 0) return '${hours}h ${minutes}m';
-  if (minutes > 0) return '${minutes}m';
-  return '${totalSeconds}s';
-}
-
-/// Compact so a growing lifetime hasanat total never overflows its column
-/// in the stats card - full-precision numbers show up in smaller-magnitude
-/// spots instead (the live reading-session chip, the completion dialog).
-String _formatCompactCount(int n) {
-  if (n < 1000) return '$n';
-  if (n < 1000000) return '${(n / 1000).toStringAsFixed(n < 10000 ? 1 : 0)}k';
-  return '${(n / 1000000).toStringAsFixed(1)}M';
-}
 
 class HomeScreen extends StatefulWidget {
   /// Supplied by [RootScreen] so its coach tour can point at these even
@@ -545,19 +529,19 @@ class _StatsCardState extends State<_StatsCard> with SingleTickerProviderStateMi
               children: [
                 _StatsGrid(stats: [
                   _Stat('Ayahs read', '${appState.ayahsReadToday}'),
-                  _Stat('Time reading', _formatDuration(appState.readingSecondsToday)),
-                  _Stat('Hasanat', _formatCompactCount(appState.hasanatToday)),
+                  _Stat('Time reading', formatDuration(appState.readingSecondsToday)),
+                  _Stat('Hasanat', formatCompactCount(appState.hasanatToday)),
                 ]),
                 _StatsGrid(stats: [
                   _Stat('Ayahs read', '${appState.ayahsReadThisWeek}'),
-                  _Stat('Time reading', _formatDuration(appState.readingSecondsThisWeek)),
-                  _Stat('Hasanat', _formatCompactCount(appState.hasanatThisWeek)),
+                  _Stat('Time reading', formatDuration(appState.readingSecondsThisWeek)),
+                  _Stat('Hasanat', formatCompactCount(appState.hasanatThisWeek)),
                 ]),
                 _StatsGrid(stats: [
                   _Stat('Ayahs read', '${appState.totalAyahsRead}'),
-                  _Stat('Time reading', _formatDuration(appState.totalReadingSeconds)),
+                  _Stat('Time reading', formatDuration(appState.totalReadingSeconds)),
                   _Stat('Best streak', '${appState.longestStreak}'),
-                  _Stat('Hasanat', _formatCompactCount(appState.totalHasanat)),
+                  _Stat('Hasanat', formatCompactCount(appState.totalHasanat)),
                 ]),
               ],
             ),

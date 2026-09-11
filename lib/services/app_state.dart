@@ -254,6 +254,16 @@ class AppState extends ChangeNotifier {
 
   bool wasReadOnDate(DateTime date) => _streakService.ayahsReadOn(date) > 0;
 
+  int ayahsReadOn(DateTime date) => _streakService.ayahsReadOn(date);
+  int hasanatOn(DateTime date) => _streakService.hasanatOn(date);
+  int readingSecondsOn(DateTime date) => _streakService.readingSecondsOn(date);
+
+  /// The earliest date anything was ever logged as read - null for a
+  /// brand-new install with no history yet. Used by the stats screen so it
+  /// never shows a heatmap stretching back further than the user's actual
+  /// first day with the app.
+  DateTime? get earliestLoggedDate => _streakService.earliestLoggedDate();
+
   Map<DateTime, DayOutcome>? _dayOutcomesCache;
 
   /// Whether [date] was a plain read day, a miss grace forgave, or a miss

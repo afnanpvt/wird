@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../services/app_state.dart';
 import '../widgets/quick_page_physics.dart';
+import 'day_stats_screen.dart';
 
 /// Full month view of the same honest per-day activity the home screen's
 /// weekly strip shows - lets you look back at any past month, not just this
@@ -104,7 +105,19 @@ class _StreakCalendarScreenState extends State<StreakCalendarScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(elevation: 0, title: const Text('Reading calendar')),
+      appBar: AppBar(
+        elevation: 0,
+        title: const Text('Reading calendar'),
+        actions: [
+          IconButton(
+            tooltip: 'Stats by day',
+            icon: const Icon(Icons.bar_chart_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const DayStatsScreen()),
+            ),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

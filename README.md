@@ -29,7 +29,7 @@ either way android will warn you about installing from outside the play store. e
 ## what's new in 1.9.0
 
 - **friends, entirely optional**: don't open the friends tab and nothing about you ever leaves your phone, same as before. if you do want it: a friend code to add people you actually know, a small leaderboard of streaks/ayahs/hasanat among just the two (or few) of you, and a nudge when a friend reads. see "the friends feature" below
-- **nightly recitation**: a single guided sequence through the authentically-established nightly recitations (ayat al-kursi, al-baqarah's last two verses, the three quls, al-kafirun, al-mulk), one step at a time with real progress, not five separate trips back to the reading screen
+- **nightly recitation**: a guided sequence through the authentically-established nightly recitations (ayat al-kursi, al-baqarah's last two verses, the three quls, al-kafirun, al-mulk), one step at a time with real progress
 - **popular reads on home**: a quiet shelf of commonly-read surahs (yaseen, ar-rahman, al-muzzammil, ayat al-kursi) for a quick one-tap read that doesn't touch your continue-reading spot
 - **send feedback**: a proper feedback form from the about screen, straight to the developer
 - an app-wide visual pass: consistent button shapes, card corners, spacing, and text sizing throughout, and every dialog replaced with a proper bottom sheet

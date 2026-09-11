@@ -173,8 +173,10 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
               DateTime.now().weekday == DateTime.friday ? const _FridayCard() : _VerseOfTheDay(verse: verse),
               const SizedBox(height: 20),
-              const _NightlyRecitationCard(),
-              const SizedBox(height: 20),
+              if (_isNighttime(DateTime.now())) ...[
+                const _NightlyRecitationCard(),
+                const SizedBox(height: 20),
+              ],
               const _PopularReadsShelf(),
               const SizedBox(height: 20),
               const _StatsCard(),
@@ -729,6 +731,12 @@ class _FridayCard extends StatelessWidget {
     );
   }
 }
+
+/// True from early evening through just before dawn (the local device
+/// clock), matching when the nightly recitations are actually meant to be
+/// read - hides the card outright the rest of the day rather than showing
+/// it as an always-available checklist.
+bool _isNighttime(DateTime now) => now.hour >= 18 || now.hour < 5;
 
 /// The five authentically-established nightly recitations (see
 /// docs/superpowers/specs - hadith research backing each item), shown as a

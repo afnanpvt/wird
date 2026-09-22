@@ -26,7 +26,11 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.10.1
+## what's new in 1.10.2
+
+- fixed hasanat not counting when re-reading verses you've already read before, and occasionally double-counting
+
+and from 1.10.1:
 
 - fixed "I'm done" landing back on a surah you already finished instead of where you actually started, if you'd read through more than one surah in a row
 

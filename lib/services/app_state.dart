@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../config/feature_flags.dart';
+import '../models/backup_snapshot.dart';
 import '../models/bookmark.dart';
 import '../models/favorite_ayah.dart';
 import '../models/quran_script.dart';
 import '../models/reciter.dart';
 import '../models/streak_state.dart';
+import 'backup_service.dart';
 import 'bookmarks_service.dart';
 import 'favorites_service.dart';
 import 'friends_service.dart';
@@ -29,6 +31,7 @@ class AppState extends ChangeNotifier {
   final FavoritesService _favoritesService = FavoritesService();
   final BookmarksService _bookmarksService = BookmarksService();
   final FriendsService? _friendsService = FeatureFlags.friendsEnabled ? FriendsService() : null;
+  final BackupService? _backupService = FeatureFlags.backupEnabled ? BackupService() : null;
 
   bool isLoaded = false;
   StreakState streakState = const StreakState();
@@ -148,6 +151,7 @@ class AppState extends ChangeNotifier {
     _dayOutcomesCache = null;
     notifyListeners();
     unawaited(_syncFriendsStatsIfOptedIn());
+    unawaited(_pushBackupIfSignedIn());
   }
 
   /// Fire-and-forget push of this device's stats to Firestore, if (and only
@@ -170,12 +174,66 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  bool isAyahRead(int surahNumber, int ayahNumber) => _streakService.isAyahRead(surahNumber, ayahNumber);
+  /// The service behind Google Sign-In backup/restore, or null if
+  /// FeatureFlags.backupEnabled is off - see BackupService's doc. Screens
+  /// call sign-in/out/delete directly on this (same pattern FriendsScreen
+  /// uses for FriendsService); AppState only owns the parts that need
+  /// access to every local service's data - gathering a snapshot to push,
+  /// and writing a restored one back.
+  BackupService? get backupService => _backupService;
+
+  /// A full snapshot of this device's current reading data, ready to push -
+  /// see [BackupSnapshot] for exactly what is and isn't included.
+  BackupSnapshot currentBackupSnapshot() => BackupSnapshot(
+        streakState: streakState,
+        longestStreak: _streakService.getLongestStreak(),
+        totalHasanat: totalHasanat,
+        totalReadingSeconds: totalReadingSeconds,
+        dailyLogs: _streakService.allDailyLogs(),
+        dailyHasanat: _streakService.allDailyHasanat(),
+        dailyReadingSeconds: _streakService.allDailyReadingSeconds(),
+        bookmarks: bookmarks,
+        favorites: favorites,
+        backedUpAt: DateTime.now().toIso8601String(),
+      );
+
+  /// Fire-and-forget push, mirroring [_syncFriendsStatsIfOptedIn]: a no-op
+  /// unless this device is actually signed in to backup, and never throws
+  /// into the reading flow (BackupService.pushBackup already swallows its
+  /// own network errors).
+  Future<void> _pushBackupIfSignedIn() async {
+    final backup = _backupService;
+    if (backup == null || !backup.isSignedIn) return;
+    await backup.pushBackup(currentBackupSnapshot());
+  }
+
+  /// Overwrites every locally-tracked reading value with a backup snapshot -
+  /// only call this after the user has explicitly confirmed the restore
+  /// (see BackupScreen), never automatically: it replaces, not merges.
+  Future<void> restoreFromBackup(BackupSnapshot snapshot) async {
+    await _streakService.restoreFrom(
+      state: snapshot.streakState,
+      longestStreak: snapshot.longestStreak,
+      totalHasanat: snapshot.totalHasanat,
+      totalReadingSeconds: snapshot.totalReadingSeconds,
+      dailyLogs: snapshot.dailyLogs,
+      dailyHasanat: snapshot.dailyHasanat,
+      dailyReadingSeconds: snapshot.dailyReadingSeconds,
+    );
+    await _bookmarksService.restoreAll(snapshot.bookmarks);
+    await _favoritesService.restoreAll(snapshot.favorites);
+    streakState = _streakService.getState();
+    bookmarks = _bookmarksService.getAll();
+    favorites = _favoritesService.getAll();
+    _dayOutcomesCache = null;
+    notifyListeners();
+  }
 
   Future<void> updateBookmarkPosition(String bookmarkId, int surahNumber, int ayahNumber) async {
     await _bookmarksService.updatePosition(bookmarkId, surahNumber, ayahNumber);
     bookmarks = _bookmarksService.getAll();
     notifyListeners();
+    unawaited(_pushBackupIfSignedIn());
   }
 
   Future<Bookmark> createBookmark({
@@ -192,6 +250,7 @@ class AppState extends ChangeNotifier {
     );
     bookmarks = _bookmarksService.getAll();
     notifyListeners();
+    unawaited(_pushBackupIfSignedIn());
     return bookmark;
   }
 
@@ -199,12 +258,14 @@ class AppState extends ChangeNotifier {
     await _bookmarksService.rename(id, name);
     bookmarks = _bookmarksService.getAll();
     notifyListeners();
+    unawaited(_pushBackupIfSignedIn());
   }
 
   Future<void> setDefaultBookmark(String id) async {
     await _bookmarksService.setDefault(id);
     bookmarks = _bookmarksService.getAll();
     notifyListeners();
+    unawaited(_pushBackupIfSignedIn());
   }
 
   /// Refuses to delete the last remaining bookmark — the app always needs
@@ -221,6 +282,7 @@ class AppState extends ChangeNotifier {
       bookmarks = _bookmarksService.getAll();
     }
     notifyListeners();
+    unawaited(_pushBackupIfSignedIn());
   }
 
   Future<void> saveName(String name) async {
@@ -315,6 +377,7 @@ class AppState extends ChangeNotifier {
     }
     favorites = _favoritesService.getAll();
     notifyListeners();
+    unawaited(_pushBackupIfSignedIn());
   }
 
   Future<void> updateKahfPosition(int ayahNumber) async {

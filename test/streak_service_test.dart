@@ -13,7 +13,6 @@ void main() {
     Hive.init(tempDir.path);
     await Hive.openBox(HiveBoxes.streak);
     await Hive.openBox(HiveBoxes.dailyLogs);
-    await Hive.openBox(HiveBoxes.readAyahs);
     await Hive.openBox(HiveBoxes.dailyHasanat);
   });
 

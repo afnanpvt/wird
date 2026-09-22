@@ -81,6 +81,15 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   int _sessionHasanat = 0;
   late final ConfettiController _confettiController;
 
+  /// Ayahs already credited (hasanat + streak) during this reading-screen
+  /// visit, keyed `'surah:ayah'`. Scoped to this screen instance rather than
+  /// persisted, so hasanat is earned again on every genuine new visit -
+  /// matching hasanat being a reward for reciting, not a one-time badge -
+  /// while a synchronous `Set.add` still makes the check-and-mark atomic, so
+  /// the dwell timer and a page change racing for the same ayah can't both
+  /// slip through and double-credit it.
+  final Set<String> _creditedThisVisit = {};
+
   /// Held in a notifier rather than plain state so the once-a-second tick
   /// repaints only the timer chip. A setState here would rebuild the whole
   /// screen - including the PageView and its Arabic text layout - once every
@@ -264,10 +273,14 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
   /// paging past it (see [_onPageChanged]) or, if the reader just sits on it,
   /// by [_restartAutoCreditTimer]'s dwell timer - so it guards against
   /// crediting the same ayah twice regardless of which path gets there first.
+  /// `Set.add` returns false when the key was already present, so the check
+  /// and the mark happen as one synchronous step - nothing can land between
+  /// them the way it could with a check then a separately-awaited write.
   void _creditAyahRead(int index) {
     final content = _contentAt(index);
+    final key = '${content.surahNumber}:${content.ayahNumber}';
+    if (!_creditedThisVisit.add(key)) return;
     final appState = context.read<AppState>();
-    if (appState.isAyahRead(content.surahNumber, content.ayahNumber)) return;
     appState.recordAyahRead(content.surahNumber, content.ayahNumber);
     _sessionHasanat += appState.quran.hasanatForAyah(content.surahNumber, content.ayahNumber);
   }

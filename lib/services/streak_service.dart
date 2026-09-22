@@ -19,7 +19,6 @@ class StreakService {
   Box get _streakBox => Hive.box(HiveBoxes.streak);
   Box get _dailyLogsBox => Hive.box(HiveBoxes.dailyLogs);
   Box get _dailyReadingSecondsBox => Hive.box(HiveBoxes.dailyReadingSeconds);
-  Box get _readAyahsBox => Hive.box(HiveBoxes.readAyahs);
   Box get _dailyHasanatBox => Hive.box(HiveBoxes.dailyHasanat);
 
   StreakState getState() {
@@ -36,15 +35,6 @@ class StreakService {
       await _streakBox.put('longestStreak', state.currentStreak);
     }
   }
-
-  void _markAyahRead(int surahNumber, int ayahNumber) {
-    _readAyahsBox.put('$surahNumber:$ayahNumber', true);
-  }
-
-  int uniqueAyahsRead() => _readAyahsBox.length;
-
-  bool isAyahRead(int surahNumber, int ayahNumber) =>
-      _readAyahsBox.containsKey('$surahNumber:$ayahNumber');
 
   /// On first-ever run this defaults to yesterday, not today: it means
   /// "no day has been processed yet", so the state machine still advances
@@ -78,14 +68,18 @@ class StreakService {
     await _saveLastProcessedDate(yesterday);
   }
 
-  /// Call whenever the user reads an ayah (i.e. views a page in the reading
-  /// screen). [hasanat] is that ayah's reward value - see
-  /// [QuranRepository.hasanatForAyah].
+  /// Call whenever the user reads an ayah (i.e. a reading-screen visit pages
+  /// past it, or dwells on it long enough - see [QuranRepository.hasanatForAyah]
+  /// for [hasanat]). Every call unconditionally adds to today's counts and
+  /// total hasanat - deliberately re-earnable on every genuine reading pass,
+  /// not just the first time an ayah is ever read, matching hasanat being a
+  /// reward for reciting rather than a one-time completion badge. Not calling
+  /// this twice for the same pass is the caller's job (see
+  /// `_ReadingScreenState._creditAyahRead`'s per-visit guard).
   Future<void> recordAyahRead(int surahNumber, int ayahNumber, int hasanat) async {
     final today = dateOnly(DateTime.now());
     final todayCount = (_dailyLogsBox.get(dateKey(today)) as int? ?? 0) + 1;
     await _dailyLogsBox.put(dateKey(today), todayCount);
-    _markAyahRead(surahNumber, ayahNumber);
 
     final todayHasanat = (_dailyHasanatBox.get(dateKey(today)) as int? ?? 0) + hasanat;
     await _dailyHasanatBox.put(dateKey(today), todayHasanat);
@@ -102,6 +96,47 @@ class StreakService {
       await _saveState(updated);
       await _saveLastProcessedDate(today);
     }
+  }
+
+  /// Full day-by-day maps for [BackupService] to push - see [restoreFrom]
+  /// for the other direction.
+  Map<String, int> allDailyLogs() => Map<String, int>.from(_dailyLogsBox.toMap());
+  Map<String, int> allDailyHasanat() => Map<String, int>.from(_dailyHasanatBox.toMap());
+  Map<String, int> allDailyReadingSeconds() => Map<String, int>.from(_dailyReadingSecondsBox.toMap());
+
+  /// Overwrites this device's streak/hasanat/reading-time state with a
+  /// restored backup - only called from [BackupService]'s restore flow,
+  /// only after the user has explicitly confirmed (see BackupScreen). Every
+  /// box this touches is fully replaced, not merged: two independent
+  /// reading histories can't be meaningfully combined, so restoring means
+  /// picking the backup over whatever (if anything) is on this device.
+  Future<void> restoreFrom({
+    required StreakState state,
+    required int longestStreak,
+    required int totalHasanat,
+    required int totalReadingSeconds,
+    required Map<String, int> dailyLogs,
+    required Map<String, int> dailyHasanat,
+    required Map<String, int> dailyReadingSeconds,
+  }) async {
+    await _saveState(state);
+    await _streakBox.put('longestStreak', longestStreak);
+    await _streakBox.put('totalHasanat', totalHasanat);
+    await _streakBox.put('totalReadingSeconds', totalReadingSeconds);
+    await _dailyLogsBox.clear();
+    await _dailyLogsBox.putAll(dailyLogs);
+    await _dailyHasanatBox.clear();
+    await _dailyHasanatBox.putAll(dailyHasanat);
+    await _dailyReadingSecondsBox.clear();
+    await _dailyReadingSecondsBox.putAll(dailyReadingSeconds);
+    // Reconciling forward from the backup's own last-read date (not this
+    // device's clock) means a gap between "last read on the old device" and
+    // "restored on this one" is treated as an ordinary missed-days gap, the
+    // same grace/reset logic that already handles any offline stretch.
+    final lastReadDate = dailyLogs.keys.isEmpty
+        ? dateOnly(DateTime.now()).subtract(const Duration(days: 1))
+        : DateTime.parse((dailyLogs.keys.toList()..sort()).last);
+    await _saveLastProcessedDate(lastReadDate);
   }
 
   /// The earliest date anything was ever logged as read, or null if nothing

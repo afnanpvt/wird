@@ -5,7 +5,6 @@ class HiveBoxes {
   static const streak = 'streak';
   static const dailyLogs = 'dailyLogs';
   static const dailyReadingSeconds = 'dailyReadingSeconds';
-  static const readAyahs = 'readAyahs';
   static const settings = 'settings';
   static const favoriteAyahs = 'favoriteAyahs';
   static const bookmarks = 'bookmarks';
@@ -19,7 +18,6 @@ Future<void> initHive() async {
   await Hive.openBox(HiveBoxes.streak);
   await Hive.openBox(HiveBoxes.dailyLogs);
   await Hive.openBox(HiveBoxes.dailyReadingSeconds);
-  await Hive.openBox(HiveBoxes.readAyahs);
   await Hive.openBox(HiveBoxes.settings);
   await Hive.openBox(HiveBoxes.favoriteAyahs);
   await Hive.openBox(HiveBoxes.bookmarks);

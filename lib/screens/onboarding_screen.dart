@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/feature_flags.dart';
 import '../models/avatar_seeds.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
+import '../services/backup_service.dart';
 import '../widgets/avatar_picker_grid.dart';
+import '../widgets/backup_restore_dialog.dart';
+import '../widgets/google_sign_in_button.dart';
 import '../widgets/profile_avatar.dart';
 import 'root_screen.dart';
 
@@ -22,7 +26,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   QuranScript _selectedScript = QuranScript.indoPakNastaleeq;
   String _selectedAvatarSeed = avatarSeeds.first;
 
-  static const _totalSteps = 4;
+  // One extra step - the optional Google backup offer - only when that
+  // feature is actually compiled in (see FeatureFlags.backupEnabled); a
+  // build without it never shows a sign-in button it can't back up yet.
+  static const _totalSteps = FeatureFlags.backupEnabled ? 5 : 4;
 
   @override
   void dispose() {
@@ -91,6 +98,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     onNext: () => _goTo(3),
                     onBack: () => _goTo(1),
                   ),
+                  if (FeatureFlags.backupEnabled)
+                    _BackupStep(onNext: () => _goTo(4), onBack: () => _goTo(2)),
                   _WelcomeStep(
                     name: _nameController.text.trim(),
                     avatarSeed: _selectedAvatarSeed,
@@ -347,6 +356,136 @@ class _ScriptCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The optional Google backup offer - only ever in the flow when
+/// FeatureFlags.backupEnabled is compiled in (see OnboardingScreen). Never
+/// blocks progress: signing in, restoring, an error, or "Skip for now" all
+/// lead to the same next step. This is also the moment a *reinstall* is
+/// most likely to matter - someone who backed up before, deleted the app,
+/// and is back at onboarding with an empty device - so a found backup is
+/// offered for restore right here, before they build up any new local data.
+class _BackupStep extends StatefulWidget {
+  final VoidCallback onNext;
+  final VoidCallback onBack;
+
+  const _BackupStep({required this.onNext, required this.onBack});
+
+  @override
+  State<_BackupStep> createState() => _BackupStepState();
+}
+
+class _BackupStepState extends State<_BackupStep> {
+  bool _working = false;
+  String? _error;
+
+  Future<void> _signIn() async {
+    final appState = context.read<AppState>();
+    final service = appState.backupService;
+    if (service == null) {
+      widget.onNext();
+      return;
+    }
+    setState(() {
+      _working = true;
+      _error = null;
+    });
+    try {
+      final outcome = await service.signInWithGoogle();
+      if (outcome == BackupSignInOutcome.cancelled) {
+        setState(() => _working = false);
+        return;
+      }
+      if (!mounted) return;
+      final remote = await service.fetchBackup();
+      if (remote != null && mounted) {
+        final shouldRestore = await showRestoreBackupDialog(context, remote);
+        if (shouldRestore == true) {
+          await appState.restoreFromBackup(remote);
+        } else {
+          await service.pushBackup(appState.currentBackupSnapshot());
+        }
+      } else {
+        await service.pushBackup(appState.currentBackupSnapshot());
+      }
+      if (!mounted) return;
+      widget.onNext();
+    } catch (e, stack) {
+      debugPrint('Onboarding backup sign-in failed: $e\n$stack');
+      if (!mounted) return;
+      setState(() {
+        _working = false;
+        _error = "Something went wrong signing in - mind trying again, or skip for now?";
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          IconButton(
+            onPressed: _working ? null : widget.onBack,
+            icon: const Icon(Icons.arrow_back_rounded),
+            style: IconButton.styleFrom(alignment: Alignment.centerLeft, padding: EdgeInsets.zero),
+          ),
+          const Spacer(),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) => Opacity(
+              opacity: value,
+              child: Transform.translate(offset: Offset(0, (1 - value) * 12), child: child),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: colorScheme.primary.withValues(alpha: 0.12)),
+                  child: Icon(Icons.cloud_outlined, size: 32, color: colorScheme.primary),
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  'Keep it, even if you delete the app',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1.2, color: colorScheme.onSurface),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  "Sign in with Google to back up your streak, hasanat and bookmarks, so a new phone or a "
+                  "reinstall picks up right where you left off. Totally optional - skip it now and turn it on "
+                  "anytime later from Profile.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, height: 1.5, color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          if (_error != null) ...[
+            Text(_error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: colorScheme.error)),
+            const SizedBox(height: 12),
+          ],
+          GoogleSignInButton(loading: _working, onPressed: _working ? null : _signIn),
+          const SizedBox(height: 12),
+          Center(
+            child: TextButton(
+              onPressed: _working ? null : widget.onNext,
+              style: TextButton.styleFrom(foregroundColor: colorScheme.onSurfaceVariant),
+              child: const Text('Skip for now'),
+            ),
+          ),
+          const Spacer(),
+        ],
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../services/friends_service.dart';
 import '../widgets/avatar_picker_grid.dart';
 import '../widgets/profile_avatar.dart';
 import 'about_screen.dart';
+import 'backup_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -50,6 +51,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Keeps the published Friends profile's name in sync, if Friends is
     // already enabled - a no-op otherwise (see updateDisplayName's doc).
     if (name.isNotEmpty) await _friendsService?.updateDisplayName(name);
+  }
+
+  /// Describes exactly what happens to reading data given which optional
+  /// cloud features (if any) are compiled into this build - keeps this
+  /// promise accurate rather than a blanket claim that stops being true the
+  /// moment either feature is turned on. See PrivacyScreen for the full
+  /// policy this summarizes.
+  String _yourDataCopy() {
+    final parts = <String>['Your reading position, streak, and stats are stored on this device and kept permanently.'];
+    if (FeatureFlags.friendsEnabled) {
+      parts.add(
+        'If you add friends, only your streak, ayah count, and hasanat (never what you actually read) are shared '
+        'with them - and only what you choose to show.',
+      );
+    }
+    if (FeatureFlags.backupEnabled) {
+      parts.add(
+        "If you turn on Google backup, a copy is also kept under your Google account so reinstalling wird - even "
+        "on a new phone - can bring it back. Off until you turn it on, and deletable anytime from that screen.",
+      );
+    }
+    if (!FeatureFlags.friendsEnabled && !FeatureFlags.backupEnabled) {
+      parts.add("Nothing is ever sent anywhere - it will only be lost if you uninstall wird.");
+    }
+    return parts.join(' ');
   }
 
   static const _themeLabels = {
@@ -187,14 +213,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 40),
           Text('YOUR DATA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 8),
-          Text(
-            FeatureFlags.friendsEnabled
-                ? 'Your reading position, streak, and stats are stored on this device and kept permanently. '
-                    'If you add friends, only your streak, ayah count, and hasanat (never what you actually read) are shared with them - and only what you choose to show.'
-                : 'Your reading position, streak, and stats are stored only on this device, never sent anywhere. '
-                    "They're kept permanently and will only be lost if you uninstall wird.",
-            style: TextStyle(fontSize: 13.5, height: 1.5, color: colorScheme.onSurface),
-          ),
+          Text(_yourDataCopy(), style: TextStyle(fontSize: 13.5, height: 1.5, color: colorScheme.onSurface)),
+          if (FeatureFlags.backupEnabled) ...[
+            const SizedBox(height: 12),
+            Material(
+              color: colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BackupScreen())),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  child: Row(
+                    children: [
+                      Icon(Icons.cloud_outlined, size: 20, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 12),
+                      const Expanded(child: Text('Back up your data', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                      Icon(Icons.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 40),
           Center(
             child: TextButton(

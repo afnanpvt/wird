@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../config/feature_flags.dart';
 import '../services/feedback_service.dart';
+import 'privacy_screen.dart';
 
 /// App credit, third-party attribution, and feedback - deliberately its
 /// own screen rather than inline on Profile, the way most apps tuck this
@@ -63,6 +64,12 @@ class AboutScreen extends StatelessWidget {
           SelectableText(
             'afnan.wird@gmail.com',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+          ),
+          const SizedBox(height: 20),
+          TextButton(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacyScreen())),
+            style: TextButton.styleFrom(foregroundColor: colorScheme.onSurfaceVariant),
+            child: const Text('Privacy policy', style: TextStyle(fontSize: 12.5)),
           ),
         ],
       ),

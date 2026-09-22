@@ -88,4 +88,16 @@ class BookmarksService {
   }
 
   Future<void> delete(String id) => _box.delete(id);
+
+  /// Replaces every local bookmark with a restored backup's list - only
+  /// called from [BackupService]'s restore flow, after explicit user
+  /// confirmation. The incoming list is trusted as-is (it came from this
+  /// same app's own serialization on another device), so this doesn't
+  /// re-enforce the one-default invariant itself.
+  Future<void> restoreAll(List<Bookmark> bookmarks) async {
+    await _box.clear();
+    for (final bookmark in bookmarks) {
+      await _box.put(bookmark.id, bookmark.toMap());
+    }
+  }
 }

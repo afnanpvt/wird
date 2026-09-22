@@ -43,11 +43,15 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initHive();
-  // Only the dev/test build compiles this flag true (see feature_flags.dart)
-  // - a public/prod build never contacts Firebase at all, and needs no
-  // real firebase_options.dart to compile or run.
-  if (FeatureFlags.friendsEnabled) {
+  // Only a dev/test build compiles either flag true (see feature_flags.dart)
+  // - a public/prod build without them never contacts Firebase at all, and
+  // needs no real firebase_options.dart to compile or run. Friends and
+  // Backup are independent features that happen to share one Firebase
+  // project, so either flag alone is enough to need it initialized.
+  if (FeatureFlags.friendsEnabled || FeatureFlags.backupEnabled) {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
+  if (FeatureFlags.friendsEnabled) {
     await registerPeriodicNudgeCheck();
   }
   // Created here, ahead of the widget tree, so the same instance can be

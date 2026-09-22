@@ -21,4 +21,14 @@ class FavoritesService {
     favorites.sort((a, b) => b.savedAt.compareTo(a.savedAt));
     return favorites;
   }
+
+  /// Replaces every local saved verse with a restored backup's list - only
+  /// called from [BackupService]'s restore flow, after explicit user
+  /// confirmation.
+  Future<void> restoreAll(List<FavoriteAyah> favorites) async {
+    await _box.clear();
+    for (final favorite in favorites) {
+      await _box.put(_key(favorite.surahNumber, favorite.ayahNumber), favorite.toMap());
+    }
+  }
 }

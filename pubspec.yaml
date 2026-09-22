@@ -50,6 +50,7 @@ dependencies:
   dicebear_styles: ^10.6.0
   flutter_svg: ^2.3.0
   share_plus: ^13.3.0
+  google_sign_in: ^6.2.2
 
 dev_dependencies:
   flutter_test:
@@ -99,6 +100,7 @@ flutter:
     - assets/images/nightly_recitation.png
     - assets/images/icon.png
     - assets/images/notification_cover.png
+    - assets/images/google_logo.svg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

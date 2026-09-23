@@ -12,7 +12,28 @@
           "package_name": "com.afnan.wird"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "327002593542-hjeljl96cdkkspfuoo39ma64s6m2i7s8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.afnan.wird",
+            "certificate_hash": "43be382ea9aa130ba665b1be6113cd8f2fa967fa"
+          }
+        },
+        {
+          "client_id": "327002593542-navne81st6hepju19rgde6a93m46uiu0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.afnan.wird",
+            "certificate_hash": "9ed28136f6f47a73e4cbfecd90e001545cefc347"
+          }
+        },
+        {
+          "client_id": "327002593542-69p213b62v9am15571d9e6e877sm4vav.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD6zrM7Zs9eZ4_pgXwEZ1X-k1HJHP38Ev0"
@@ -20,7 +41,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "327002593542-69p213b62v9am15571d9e6e877sm4vav.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     },
@@ -31,7 +57,28 @@
           "package_name": "com.afnan.wird.dev"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "327002593542-9n2nb3fjhtpq3uu7rifj7o8178ql1fav.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.afnan.wird.dev",
+            "certificate_hash": "9ed28136f6f47a73e4cbfecd90e001545cefc347"
+          }
+        },
+        {
+          "client_id": "327002593542-ub57apn3a2ri657nvtdr0baij934675u.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.afnan.wird.dev",
+            "certificate_hash": "43be382ea9aa130ba665b1be6113cd8f2fa967fa"
+          }
+        },
+        {
+          "client_id": "327002593542-69p213b62v9am15571d9e6e877sm4vav.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD6zrM7Zs9eZ4_pgXwEZ1X-k1HJHP38Ev0"
@@ -39,7 +86,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "327002593542-69p213b62v9am15571d9e6e877sm4vav.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     },
@@ -50,7 +102,28 @@
           "package_name": "com.afnan.wird.dev2"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "327002593542-dpjlpv68tcv6ief6n92jnu8r7sapo0pv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.afnan.wird.dev2",
+            "certificate_hash": "9ed28136f6f47a73e4cbfecd90e001545cefc347"
+          }
+        },
+        {
+          "client_id": "327002593542-vkc8ru88h60ag5277tdkfnlm6ftk8qi5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.afnan.wird.dev2",
+            "certificate_hash": "43be382ea9aa130ba665b1be6113cd8f2fa967fa"
+          }
+        },
+        {
+          "client_id": "327002593542-69p213b62v9am15571d9e6e877sm4vav.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD6zrM7Zs9eZ4_pgXwEZ1X-k1HJHP38Ev0"
@@ -58,7 +131,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "327002593542-69p213b62v9am15571d9e6e877sm4vav.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

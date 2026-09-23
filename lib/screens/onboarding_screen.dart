@@ -8,6 +8,7 @@ import '../services/app_state.dart';
 import '../services/backup_service.dart';
 import '../widgets/avatar_picker_grid.dart';
 import '../widgets/backup_restore_dialog.dart';
+import '../widgets/backup_ribbon_icon.dart';
 import '../widgets/google_sign_in_button.dart';
 import '../widgets/profile_avatar.dart';
 import 'root_screen.dart';
@@ -426,7 +427,11 @@ class _BackupStepState extends State<_BackupStep> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
+    // Top-down and scrollable, same convention as AvatarStep/ScriptStep -
+    // not the Spacer-based vertical centering NameStep/WelcomeStep use.
+    // The hero panel below is tall enough that centering it with Spacers
+    // risked overflowing on shorter phones; scrolling never does.
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -436,7 +441,7 @@ class _BackupStepState extends State<_BackupStep> {
             icon: const Icon(Icons.arrow_back_rounded),
             style: IconButton.styleFrom(alignment: Alignment.centerLeft, padding: EdgeInsets.zero),
           ),
-          const Spacer(),
+          const SizedBox(height: 8),
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
             duration: const Duration(milliseconds: 500),
@@ -447,11 +452,36 @@ class _BackupStepState extends State<_BackupStep> {
             ),
             child: Column(
               children: [
+                // Same gradient-plus-ribbon-watermark treatment as the home
+                // screen's backup card, on purpose - one visual identity for
+                // this feature wherever it's offered, instead of a generic
+                // icon-in-a-tinted-circle that could belong to any setting.
                 Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: colorScheme.primary.withValues(alpha: 0.12)),
-                  child: Icon(Icons.cloud_outlined, size: 32, color: colorScheme.primary),
+                  height: 168,
+                  width: double.infinity,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [colorScheme.primary, Color.lerp(colorScheme.primary, Colors.black, 0.4)!],
+                    ),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned(
+                        right: -24,
+                        bottom: -24,
+                        child: Opacity(
+                          opacity: 0.16,
+                          child: BackupRibbonIcon(size: 170, color: Colors.white),
+                        ),
+                      ),
+                      BackupRibbonIcon(size: 60, color: Colors.white),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 28),
                 Text(
@@ -484,7 +514,6 @@ class _BackupStepState extends State<_BackupStep> {
               child: const Text('Skip for now'),
             ),
           ),
-          const Spacer(),
         ],
       ),
     );

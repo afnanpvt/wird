@@ -6,6 +6,7 @@ import '../services/app_state.dart';
 import '../services/backup_service.dart';
 import '../utils/backup_formatting.dart';
 import '../widgets/backup_restore_dialog.dart';
+import '../widgets/backup_ribbon_icon.dart';
 import '../widgets/google_sign_in_button.dart';
 import 'privacy_screen.dart';
 
@@ -170,7 +171,7 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   List<Widget> _buildSignedOut(ColorScheme colorScheme) => [
-        Icon(Icons.cloud_outlined, size: 32, color: colorScheme.primary),
+        BackupRibbonIcon(size: 40, color: colorScheme.primary),
         const SizedBox(height: 16),
         Text(
           "Keep your reading safe if you lose this phone",
@@ -207,7 +208,7 @@ class _BackupScreenState extends State<BackupScreen> {
       ];
 
   List<Widget> _buildSignedIn(ColorScheme colorScheme) => [
-        Icon(Icons.cloud_done_outlined, size: 32, color: colorScheme.primary),
+        BackupRibbonIcon(size: 40, color: colorScheme.primary),
         const SizedBox(height: 16),
         Text('Backed up', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
         const SizedBox(height: 4),

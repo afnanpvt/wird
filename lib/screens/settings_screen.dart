@@ -7,6 +7,7 @@ import '../models/reciter.dart';
 import '../services/app_state.dart';
 import '../services/friends_service.dart';
 import '../widgets/avatar_picker_grid.dart';
+import '../widgets/backup_ribbon_icon.dart';
 import '../widgets/profile_avatar.dart';
 import 'about_screen.dart';
 import 'backup_screen.dart';
@@ -226,7 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                   child: Row(
                     children: [
-                      Icon(Icons.cloud_outlined, size: 20, color: colorScheme.onSurfaceVariant),
+                      BackupRibbonIcon(size: 18, color: colorScheme.onSurfaceVariant),
                       const SizedBox(width: 12),
                       const Expanded(child: Text('Back up your data', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
                       Icon(Icons.chevron_right_rounded, color: colorScheme.onSurfaceVariant),

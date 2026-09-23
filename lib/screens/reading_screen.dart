@@ -283,6 +283,13 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     final appState = context.read<AppState>();
     appState.recordAyahRead(content.surahNumber, content.ayahNumber);
     _sessionHasanat += appState.quran.hasanatForAyah(content.surahNumber, content.ayahNumber);
+    // Counts the same thing hasanat just did - distinct ayahs actually
+    // credited this visit - not every time the reader crosses one. Living
+    // here (inside the guard) instead of a bare increment in _onPageChanged
+    // is what keeps this number and the hasanat number next to it honest
+    // against each other: swiping back and forth over the same ayah can't
+    // inflate one while the other stays capped.
+    _sessionAyahCount++;
   }
 
   /// Restarts the dwell timer for whichever ayah is now on screen. If the
@@ -373,7 +380,6 @@ class _ReadingScreenState extends State<ReadingScreen> with WidgetsBindingObserv
     setState(() => _currentIndex = index);
     _restartAutoCreditTimer(index);
     if (!leftWasAyah) return;
-    _sessionAyahCount++;
     _creditAyahRead(leftIndex);
     if (index >= _pageCount) {
       // Swiped past the last ayah onto the completion end card: the same

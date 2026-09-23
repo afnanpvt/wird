@@ -8,7 +8,7 @@ a quran reading app for one person: whoever's holding the phone.
 
 wird (ورد) is the arabic word for a person's regular, committed portion of quran recitation. the daily habit you keep, not the one you meant to start someday. that's the whole idea here: read a little, every day, and have something honest keep track of it for you.
 
-it's a habit tracker wearing a quran app's clothes, or maybe the other way around. by default there's no leaderboard, no notifications guilting you at 9pm, and nobody but you will ever see your streak. as of 1.9.0 there's an entirely optional friends feature if you want a little accountability, see "the friends feature" below.
+it's a habit tracker wearing a quran app's clothes, or maybe the other way around. by default there's no leaderboard, no notifications guilting you at 9pm, and nobody but you will ever see your streak. as of 1.9.0 there's an entirely optional friends feature if you want a little accountability, see "the friends feature" below - and as of 1.12.0, an entirely optional way to back up your progress with a Google sign-in, off unless you turn it on.
 
 ## why build another quran app
 
@@ -26,7 +26,11 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.11.0
+## what's new in 1.12.0
+
+- **optional backup with Google**: sign in with Google (from onboarding, or anytime later from a card on home) to back up your streak, hasanat, day-by-day stats, bookmarks and saved verses, so a reinstall or a new phone can bring them back. entirely opt-in and off by default - never signing in means wird behaves exactly as this readme describes, fully local. never includes which specific ayahs you're reading, and deletable anytime from the same screen. see the in-app privacy policy for the full detail
+
+and from 1.11.0:
 
 - **stats, on the same screen as the calendar**: no more separate stats screen behind a corner icon - scroll down from the reading calendar and it's right there. added your current and longest streak up top, and a few honest trend numbers below the heatmap: best day ever, your average on days you actually read (never divided by days you didn't), this week against last week, and how many of your days since you started have had any reading at all. same rule as always - nothing here is an invented goal or a made-up percentage
 - fixed the ayah counter next to hasanat climbing every time you swiped back and forth over the same verses, instead of only counting ones you'd actually newly read

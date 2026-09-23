@@ -320,6 +320,14 @@ class AppState extends ChangeNotifier {
   int hasanatOn(DateTime date) => _streakService.hasanatOn(date);
   int readingSecondsOn(DateTime date) => _streakService.readingSecondsOn(date);
 
+  /// Full day-by-day maps (key: 'yyyy-MM-dd'), for the calendar screen's
+  /// derived insights (best day, average per active day, week-over-week) -
+  /// real arithmetic over real numbers already tracked, never an invented
+  /// goal or completion percentage. See streak_calendar_screen.dart.
+  Map<String, int> get allDailyAyahs => _streakService.allDailyLogs();
+  Map<String, int> get allDailyHasanat => _streakService.allDailyHasanat();
+  Map<String, int> get allDailyReadingSeconds => _streakService.allDailyReadingSeconds();
+
   /// The earliest date anything was ever logged as read - null for a
   /// brand-new install with no history yet. Used by the stats screen so it
   /// never shows a heatmap stretching back further than the user's actual

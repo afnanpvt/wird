@@ -26,7 +26,12 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.10.2
+## what's new in 1.11.0
+
+- **stats, on the same screen as the calendar**: no more separate stats screen behind a corner icon - scroll down from the reading calendar and it's right there. added your current and longest streak up top, and a few honest trend numbers below the heatmap: best day ever, your average on days you actually read (never divided by days you didn't), this week against last week, and how many of your days since you started have had any reading at all. same rule as always - nothing here is an invented goal or a made-up percentage
+- fixed the ayah counter next to hasanat climbing every time you swiped back and forth over the same verses, instead of only counting ones you'd actually newly read
+
+and from 1.10.2:
 
 - fixed hasanat not counting when re-reading verses you've already read before, and occasionally double-counting
 

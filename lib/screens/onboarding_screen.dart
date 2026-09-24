@@ -5,7 +5,6 @@ import '../config/feature_flags.dart';
 import '../models/avatar_seeds.dart';
 import '../models/quran_script.dart';
 import '../services/app_state.dart';
-import '../services/backup_service.dart';
 import '../widgets/avatar_picker_grid.dart';
 import '../widgets/backup_restore_dialog.dart';
 import '../widgets/backup_ribbon_icon.dart';
@@ -395,31 +394,25 @@ class _BackupStepState extends State<_BackupStep> {
       _error = null;
     });
     try {
-      final outcome = await service.signInWithGoogle();
-      if (outcome == BackupSignInOutcome.cancelled) {
+      final snapshot = await runBackupSignInFlow(context, service, appState);
+      if (!mounted) return;
+      if (snapshot == null) {
+        // Cancelled Google's own picker - stay on this step rather than
+        // treating it as an error or silently moving on.
         setState(() => _working = false);
         return;
       }
-      if (!mounted) return;
-      final remote = await service.fetchBackup();
-      if (remote != null && mounted) {
-        final shouldRestore = await showRestoreBackupDialog(context, remote);
-        if (shouldRestore == true) {
-          await appState.restoreFromBackup(remote);
-        } else {
-          await service.pushBackup(appState.currentBackupSnapshot());
-        }
-      } else {
-        await service.pushBackup(appState.currentBackupSnapshot());
-      }
-      if (!mounted) return;
       widget.onNext();
     } catch (e, stack) {
       debugPrint('Onboarding backup sign-in failed: $e\n$stack');
       if (!mounted) return;
       setState(() {
         _working = false;
-        _error = "Something went wrong signing in - mind trying again, or skip for now?";
+        // Shows the actual exception for now - this is under active
+        // debugging (Google Sign-In has failed twice with just a generic
+        // message and no way to see what actually broke), not a permanent
+        // UX choice. Revert to the plain message once root-caused.
+        _error = "Something went wrong signing in - mind trying again, or skip for now?\n\n[debug] $e";
       });
     }
   }

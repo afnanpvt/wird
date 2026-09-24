@@ -6,8 +6,8 @@ import '../models/quran_script.dart';
 import '../models/reciter.dart';
 import '../services/app_state.dart';
 import '../services/friends_service.dart';
+import '../services/playback_service.dart';
 import '../widgets/avatar_picker_grid.dart';
-import '../widgets/backup_ribbon_icon.dart';
 import '../widgets/profile_avatar.dart';
 import 'about_screen.dart';
 import 'backup_screen.dart';
@@ -69,8 +69,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     if (FeatureFlags.backupEnabled) {
       parts.add(
-        "If you turn on Google backup, a copy is also kept under your Google account so reinstalling wird - even "
-        "on a new phone - can bring it back. Off until you turn it on, and deletable anytime from that screen.",
+        "If you sign in with Google above, a copy is kept under your account automatically - no separate backup "
+        "step, ever - so reinstalling wird, even on a new phone, can bring it back. Off until you sign in, and "
+        "deletable anytime from the same screen.",
       );
     }
     if (!FeatureFlags.friendsEnabled && !FeatureFlags.backupEnabled) {
@@ -170,6 +171,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
             AvatarPickerGrid(selectedSeed: appState.avatarSeed, onSelect: _selectAvatar),
           ],
+          if (FeatureFlags.backupEnabled) ...[
+            const SizedBox(height: 28),
+            const _BackupStatusRow(),
+          ],
           const SizedBox(height: 40),
           Text('APPEARANCE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 12),
@@ -215,28 +220,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text('YOUR DATA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 8),
           Text(_yourDataCopy(), style: TextStyle(fontSize: 13.5, height: 1.5, color: colorScheme.onSurface)),
-          if (FeatureFlags.backupEnabled) ...[
-            const SizedBox(height: 12),
-            Material(
-              color: colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BackupScreen())),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  child: Row(
-                    children: [
-                      BackupRibbonIcon(size: 18, color: colorScheme.onSurfaceVariant),
-                      const SizedBox(width: 12),
-                      const Expanded(child: Text('Back up your data', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-                      Icon(Icons.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 40),
           Center(
             child: TextButton(
@@ -253,6 +236,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+/// A plain account row, not a pitched feature - "backup" isn't a thing you
+/// turn on separately, it's just what signing in means. Same quiet row
+/// style as any other Profile entry, not a bold colored chip calling
+/// attention to itself.
+class _BackupStatusRow extends StatelessWidget {
+  const _BackupStatusRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final backup = context.watch<AppState>().backupService;
+    final signedIn = backup?.isSignedIn ?? false;
+    final subtitle = signedIn ? (backup?.accountEmail ?? 'Signed in') : 'Not signed in';
+
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BackupScreen())),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          child: Row(
+            children: [
+              Icon(Icons.account_circle_outlined, size: 22, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Account', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ReciterOption extends StatelessWidget {
   final Reciter reciter;
   final bool selected;
@@ -260,9 +292,15 @@ class _ReciterOption extends StatelessWidget {
 
   const _ReciterOption({required this.reciter, required this.selected, required this.onTap});
 
+  // Al-Fatiha's opening ayah - short, and every reciter has it - just for
+  // previewing a voice, never tied to actual reading progress.
+  static const _previewSurah = 1;
+  static const _previewAyah = 1;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final playback = context.read<PlaybackService>();
     return Material(
       color: colorScheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(16),
@@ -280,6 +318,38 @@ class _ReciterOption extends StatelessWidget {
               Expanded(
                 child: Text(reciter.displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               ),
+              ValueListenableBuilder<VerseAudioState>(
+                valueListenable: playback.verseState,
+                builder: (context, state, _) {
+                  final isThis = state.isFor(_previewSurah, _previewAyah) && state.surahName == reciter.displayName;
+                  final isLoading = isThis && state.status == VerseAudioStatus.loading;
+                  final isPlaying = isThis && state.status == VerseAudioStatus.playing;
+                  return IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: isPlaying ? 'Stop preview' : 'Preview this reciter',
+                    icon: isLoading
+                        ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.onSurfaceVariant))
+                        : Icon(
+                            isPlaying ? Icons.stop_circle_rounded : Icons.play_circle_outline_rounded,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    onPressed: () => isPlaying
+                        ? playback.stopVerse()
+                        : playback.playVerse(
+                            surahNumber: _previewSurah,
+                            ayahNumber: _previewAyah,
+                            url: reciter.audioUrlFor(_previewSurah, _previewAyah),
+                            // Reused as the preview's identity tag (see isThis
+                            // above) since VerseAudioState has no reciter
+                            // field of its own - every reciter shares the
+                            // same surah/ayah for previewing, so surahName is
+                            // the only thing that tells two previews apart.
+                            surahName: reciter.displayName,
+                          ),
+                  );
+                },
+              ),
+              const SizedBox(width: 4),
               Icon(
                 selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
                 color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,

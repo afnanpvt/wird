@@ -6,18 +6,16 @@ import '../services/app_state.dart';
 import '../services/backup_service.dart';
 import '../utils/backup_formatting.dart';
 import '../widgets/backup_restore_dialog.dart';
-import '../widgets/backup_ribbon_icon.dart';
 import '../widgets/google_sign_in_button.dart';
 import 'privacy_screen.dart';
 
-/// Google Sign-In backup/restore, reached from Profile > Back up your data
-/// (and, the first time, offered as an optional step during onboarding -
-/// see OnboardingScreen's _BackupStep, which shares the sign-in/restore
-/// logic here via BackupService and AppState). Entirely optional and off by
-/// default (see FeatureFlags.backupEnabled) - this is the only place a
-/// Google account ever gets involved, and the only place data leaves the
-/// device for this feature specifically (separate from, and unaffected by,
-/// the Friends tab).
+/// Google Sign-In, reached from Profile > Account (and, the first time,
+/// offered as an optional step during onboarding - see OnboardingScreen's
+/// _BackupStep, which shares the sign-in/restore logic here via
+/// BackupService and AppState). Keeping your streak/hasanat/bookmarks tied
+/// to your account isn't framed as a separate "backup" feature to turn on -
+/// it's just what being signed in means, same as any other app. Entirely
+/// optional and off by default (see FeatureFlags.backupEnabled).
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
 
@@ -52,32 +50,18 @@ class _BackupScreenState extends State<BackupScreen> {
       _error = null;
     });
     try {
-      final outcome = await _service.signInWithGoogle();
-      if (outcome == BackupSignInOutcome.cancelled) {
+      final appState = context.read<AppState>();
+      final snapshot = await runBackupSignInFlow(context, _service, appState);
+      if (!mounted) return;
+      if (snapshot == null) {
+        // Cancelled Google's own picker - not an error, just back to rest.
         setState(() => _working = false);
         return;
       }
-      if (!mounted) return;
-      final appState = context.read<AppState>();
-      final remote = await _service.fetchBackup();
-      var restored = false;
-      if (remote != null && mounted) {
-        final shouldRestore = await showRestoreBackupDialog(context, remote);
-        if (shouldRestore == true) {
-          await appState.restoreFromBackup(remote);
-          restored = true;
-        }
-      }
-      // Always push right after sign-in too: a first-time signer-upper (no
-      // remote backup found) gets one immediately, and one who declined the
-      // restore still ends up with something backed up either way.
-      final pushed = restored ? remote! : appState.currentBackupSnapshot();
-      if (!restored) await _service.pushBackup(pushed);
-      if (!mounted) return;
       setState(() {
         _working = false;
         _signedIn = true;
-        _lastKnownBackup = pushed;
+        _lastKnownBackup = snapshot;
       });
     } catch (e, stack) {
       debugPrint('Backup sign-in failed: $e\n$stack');
@@ -158,7 +142,7 @@ class _BackupScreenState extends State<BackupScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(elevation: 0, title: const Text('Back up your data')),
+      appBar: AppBar(elevation: 0, title: const Text('Account')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),
@@ -171,24 +155,15 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   List<Widget> _buildSignedOut(ColorScheme colorScheme) => [
-        BackupRibbonIcon(size: 40, color: colorScheme.primary),
-        const SizedBox(height: 16),
         Text(
-          "Keep your reading safe if you lose this phone",
+          'Sign in with Google',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
         ),
         const SizedBox(height: 8),
         Text(
-          "By default wird lives only on this device - uninstalling it erases everything. Signing in with Google "
-          "backs up your streak, hasanat, day-by-day stats, bookmarks and saved verses, so reinstalling wird (even "
-          "on a new phone) can bring them back.",
-          style: TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "What's never included: which specific ayahs you're reading in the moment, or anything from your Google "
-          "account beyond your email - no ads, no analytics, nothing sold or shared. You can delete this backup "
-          "anytime from this screen.",
+          "Ties your streak, hasanat, bookmarks and saved verses to your account, so a reinstall or a new phone "
+          "picks up where you left off. Never includes which ayahs you're reading, and nothing from your Google "
+          "account beyond your email.",
           style: TextStyle(fontSize: 13.5, height: 1.4, color: colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 24),
@@ -207,38 +182,56 @@ class _BackupScreenState extends State<BackupScreen> {
         ),
       ];
 
+  // Leads with status, not an action - there's nothing to "do" day to day,
+  // it just stays synced (see AppState._pushBackupIfSignedIn, called after
+  // every read/bookmark/favorite change). "Sync now" further down is a
+  // small, secondary reassurance for right after being offline, the same
+  // supporting role iCloud's own "Back Up Now" plays under its own always-on
+  // status line - never the primary action, because there isn't one.
   List<Widget> _buildSignedIn(ColorScheme colorScheme) => [
-        BackupRibbonIcon(size: 40, color: colorScheme.primary),
-        const SizedBox(height: 16),
-        Text('Backed up', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
-        const SizedBox(height: 4),
-        if (_service.accountEmail != null)
-          Text(_service.accountEmail!, style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant)),
-        const SizedBox(height: 4),
-        Text(
-          'Last backed up: ${formatBackupDate(_lastKnownBackup?.backedUpAt)}',
-          style: TextStyle(fontSize: 13.5, color: colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 24),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: colorScheme.onSurface,
-            foregroundColor: colorScheme.surface,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: const StadiumBorder(),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_service.accountEmail != null)
+                Text(_service.accountEmail!, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+              const SizedBox(height: 10),
+              Divider(height: 1, color: colorScheme.outlineVariant),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text(
+                    'Last synced: ${formatBackupDate(_lastKnownBackup?.backedUpAt)}',
+                    style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+                  ),
+                  const Spacer(),
+                  if (_working)
+                    SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.onSurfaceVariant))
+                  else
+                    GestureDetector(
+                      onTap: _backUpNow,
+                      child: Text('Sync now', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.primary)),
+                    ),
+                ],
+              ),
+            ],
           ),
-          onPressed: _working ? null : _backUpNow,
-          child: _working
-              ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.surface))
-              : const Text('Back up now'),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 20),
+        Text(
+          "Every read, bookmark and saved verse pushes up on its own - there's nothing to remember to do. "
+          "If you're setting up a new phone, pull the last one down instead.",
+          style: TextStyle(fontSize: 13, height: 1.5, color: colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 16),
         OutlinedButton(
           style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: const StadiumBorder()),
           onPressed: _working ? null : _restoreLatest,
-          child: const Text('Restore latest backup'),
+          child: const Text('Restore on this device'),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 40),
         Center(
           child: TextButton(
             onPressed: _working ? null : _signOut,

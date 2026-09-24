@@ -2,7 +2,6 @@ import 'dart:math';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../models/ayah.dart';
@@ -10,7 +9,6 @@ import '../models/quran_script.dart';
 import '../services/app_state.dart';
 import '../utils/stat_formatting.dart';
 import '../widgets/profile_avatar.dart';
-import 'backup_screen.dart';
 import 'nightly_recitation_screen.dart';
 import 'reading_screen.dart';
 import 'settings_screen.dart';
@@ -58,18 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _greetingPhrase = _greetings[Random().nextInt(_greetings.length)];
-  }
-
-  /// Only for someone who could actually use it and hasn't already: the
-  /// feature has to be compiled in, they haven't signed in yet, and they
-  /// haven't explicitly closed this card before. Skipping the offer during
-  /// onboarding does NOT set that dismissal - this is the whole point of
-  /// not burying backup behind a single skip - only closing this card does.
-  bool _showsBackupPrompt(AppState appState) {
-    final backup = appState.backupService;
-    if (backup == null) return false;
-    if (backup.isSignedIn) return false;
-    return !appState.backupPromptDismissed;
   }
 
   @override
@@ -168,10 +154,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   isNewUser: appState.totalAyahsRead == 0,
                 ),
               ),
-              if (_showsBackupPrompt(appState)) ...[
-                const SizedBox(height: 20),
-                const _BackupPromptCard(),
-              ],
               const SizedBox(height: 20),
               DateTime.now().weekday == DateTime.friday ? const _FridayCard() : _VerseOfTheDay(verse: verse),
               const SizedBox(height: 20),
@@ -728,122 +710,6 @@ class _FridayCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Offers the optional Google backup, same rich card treatment as the
-/// Friday and Nightly cards (overline, a short line of real copy, a bold
-/// CTA row) rather than a plain settings-row icon - this is meant to feel
-/// like an invitation, not a buried checkbox. Uses a gradient plus the
-/// bookmark-ribbon motif instead of a photo (nothing to photograph for
-/// "your data, kept"), and the ribbon itself isn't a generic cloud/lock
-/// icon - it's the same shape as the actual bookmark feature this backs up,
-/// on purpose. The close button hides it for good on this device (see
-/// AppState.dismissBackupPrompt) - skipping it during onboarding never
-/// does that, only this explicit close does, so nobody is one wrong tap
-/// away from losing the offer entirely.
-class _BackupPromptCard extends StatelessWidget {
-  const _BackupPromptCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BackupScreen())),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [colorScheme.primary, Color.lerp(colorScheme.primary, Colors.black, 0.4)!],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: -18,
-              top: -14,
-              bottom: -14,
-              child: Opacity(
-                opacity: 0.16,
-                child: SvgPicture.asset(
-                  'assets/images/backup_ribbon.svg',
-                  height: 190,
-                  colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 28),
-                    child: Text(
-                      'KEEP YOUR PLACE',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: Colors.white.withValues(alpha: 0.85)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "Your streak, hasanat and bookmarks - safe even if you lose this phone, delete the app, or move to a new one.",
-                    style: TextStyle(fontSize: 14, height: 1.5, color: Colors.white),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Set up with Google',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
-                        ),
-                      ),
-                      Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white.withValues(alpha: 0.85)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 10,
-              right: 10,
-              child: _DismissButton(onTap: () => context.read<AppState>().dismissBackupPrompt()),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DismissButton extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _DismissButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.22),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: const Padding(
-          padding: EdgeInsets.all(6),
-          child: Icon(Icons.close_rounded, size: 16, color: Colors.white),
         ),
       ),
     );

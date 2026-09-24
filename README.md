@@ -26,7 +26,11 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.12.0
+## what's new in 1.12.1
+
+- fixed Google Sign-In failing on the real published app (worked fine in testing) - the app was quietly initializing Firebase with the wrong internal identity in the public build ever since Friends launched, invisible until real Google sign-in actually checked it
+
+and from 1.12.0:
 
 - **optional backup with Google**: sign in with Google (from onboarding, or anytime later from a card on home) to back up your streak, hasanat, day-by-day stats, bookmarks and saved verses, so a reinstall or a new phone can bring them back. entirely opt-in and off by default - never signing in means wird behaves exactly as this readme describes, fully local. never includes which specific ayahs you're reading, and deletable anytime from the same screen. see the in-app privacy policy for the full detail
 

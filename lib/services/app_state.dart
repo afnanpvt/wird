@@ -47,7 +47,6 @@ class AppState extends ChangeNotifier {
   bool showTranslation = true;
   bool showTransliteration = false;
   int kahfAyahNumber = 1;
-  bool backupPromptDismissed = false;
 
   Bookmark get defaultBookmark => bookmarks.firstWhere((b) => b.isDefault, orElse: () => bookmarks.first);
 
@@ -69,7 +68,6 @@ class AppState extends ChangeNotifier {
     showTransliteration = _settingsService.getShowTransliteration();
     favorites = _favoritesService.getAll();
     kahfAyahNumber = _settingsService.getKahfAyahNumber();
-    backupPromptDismissed = _settingsService.getBackupPromptDismissed();
     isLoaded = true;
     notifyListeners();
   }
@@ -183,15 +181,6 @@ class AppState extends ChangeNotifier {
   /// access to every local service's data - gathering a snapshot to push,
   /// and writing a restored one back.
   BackupService? get backupService => _backupService;
-
-  /// Permanently hides the home screen's backup card for this device.
-  /// Distinct from skipping it during onboarding, which never touches this -
-  /// only an explicit dismissal of the card itself does.
-  Future<void> dismissBackupPrompt() async {
-    backupPromptDismissed = true;
-    await _settingsService.saveBackupPromptDismissed();
-    notifyListeners();
-  }
 
   /// A full snapshot of this device's current reading data, ready to push -
   /// see [BackupSnapshot] for exactly what is and isn't included.

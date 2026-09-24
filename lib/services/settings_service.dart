@@ -81,12 +81,4 @@ class SettingsService {
 
   Future<void> saveKahfAyahNumber(int ayahNumber) => _box.put('kahfAyahNumber', ayahNumber);
 
-  /// Whether the home screen's "back up with Google" card has been
-  /// dismissed for good. Skipping it during onboarding does NOT set this -
-  /// skipping there just means "not right now", not "never ask again";
-  /// this flag is only set by an explicit dismissal of the home card
-  /// itself. See HomeScreen's _BackupPromptCard.
-  bool getBackupPromptDismissed() => _box.get('backupPromptDismissed') as bool? ?? false;
-
-  Future<void> saveBackupPromptDismissed() => _box.put('backupPromptDismissed', true);
 }

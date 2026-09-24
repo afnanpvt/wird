@@ -26,7 +26,12 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.12.1
+## what's new in 1.13.0
+
+- **reciter preview**: each reciter in Profile now has a play button - hear how they recite before picking one, instead of guessing from the name
+- backup no longer gets its own pitch - signing in with Google (still entirely optional, still off by default) is just "Account" in Profile now, not a promoted feature with its own card on home and a reminder after every reading session. Same automatic syncing as before, just not announced
+
+and from 1.12.1:
 
 - fixed Google Sign-In failing on the real published app (worked fine in testing) - the app was quietly initializing Firebase with the wrong internal identity in the public build ever since Friends launched, invisible until real Google sign-in actually checked it
 

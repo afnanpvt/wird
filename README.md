@@ -26,7 +26,16 @@ add `https://afnanpvt.github.io/wird/repo` as a custom repo in the [f-droid clie
 
 either way android will warn you about installing from outside the play store. expected for an app that isn't on the play store, not a sign anything's wrong. every release is signed with the same key, so updates stay clean whichever way you installed.
 
-## what's new in 1.13.0
+## what's new in 1.14.0
+
+- **prayer-time nudges**: an optional, friendly reminder to read at Fajr, Dhuhr, Asr, Maghrib and Isha, timed to wherever you are. off until you turn it on, and your location never leaves your phone
+- **one calendar**: your reading calendar and stats now live in a single view, shaded by ayahs, hasanat or time
+- **nightly recitation now counts**: finishing it adds to your day, your streak and your hasanat
+- **more control while listening**: playback speed and quick 10 second skips, plus lock screen controls that reliably show up
+- **a better friends board**: rank by streak, ayahs or hasanat, see exactly where you stand, and who has read today
+- steadier overall, and downloading from the website is smoother
+
+and from 1.13.0:
 
 - **reciter preview**: each reciter in Profile now has a play button - hear how they recite before picking one, instead of guessing from the name
 - backup no longer gets its own pitch - signing in with Google (still entirely optional, still off by default) is just "Account" in Profile now, not a promoted feature with its own card on home and a reminder after every reading session. Same automatic syncing as before, just not announced

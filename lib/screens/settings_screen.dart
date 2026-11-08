@@ -217,6 +217,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 10),
           ],
           const SizedBox(height: 40),
+          Text('REMINDERS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          const _RemindersTile(),
+          const SizedBox(height: 40),
           Text('YOUR DATA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 8),
           Text(_yourDataCopy(), style: TextStyle(fontSize: 13.5, height: 1.5, color: colorScheme.onSurface)),
@@ -231,6 +235,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Prayer-time Quran reminders (see ReminderService). Off until you flip it,
+/// which is also the moment the notification and location prompts appear.
+class _RemindersTile extends StatefulWidget {
+  const _RemindersTile();
+
+  @override
+  State<_RemindersTile> createState() => _RemindersTileState();
+}
+
+class _RemindersTileState extends State<_RemindersTile> {
+  late bool _on;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _on = context.read<AppState>().reminders.enabled;
+  }
+
+  Future<void> _toggle(bool value) async {
+    final reminders = context.read<AppState>().reminders;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    var result = value;
+    if (value) {
+      result = await reminders.enable();
+      if (!result) {
+        messenger.showSnackBar(const SnackBar(
+          content: Text('Reminders need notification and location permission to find your prayer times.'),
+        ));
+      }
+    } else {
+      await reminders.disable();
+    }
+    if (mounted) {
+      setState(() {
+        _on = result;
+        _busy = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      value: _on,
+      onChanged: _busy ? null : _toggle,
+      title: const Text('Prayer-time nudges', style: TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(
+        'A short reminder to read at Fajr, Dhuhr, Asr, Maghrib and Isha, wherever you are. Your location stays on this phone and is only used to work out prayer times.',
+        style: TextStyle(fontSize: 13, height: 1.4, color: colorScheme.onSurfaceVariant),
       ),
     );
   }

@@ -100,6 +100,13 @@ class PlaybackService extends ChangeNotifier {
 
   bool get loopCurrentAyah => _loopCurrentAyah;
 
+  double get speed => _player.speed;
+
+  Future<void> setSpeed(double value) async {
+    await _player.setSpeed(value);
+    notifyListeners();
+  }
+
   void configureAutoAdvance(Future<void> Function(int surahNumber) jumpToSurah) {
     _jumpToSurah = jumpToSurah;
   }

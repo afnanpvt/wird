@@ -85,7 +85,7 @@ class FriendNudgeChecker {
       await _notifications.show(
         id: friendUid.hashCode,
         title: 'Time to read?',
-        body: '${profile.displayName} just read Qur’an today — your turn?',
+        body: '${profile.displayName} just read Qur’an today. your turn? 👀',
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,

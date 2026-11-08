@@ -15,6 +15,16 @@ import '../widgets/listening_ambient.dart';
 /// The whole screen sits on [ListeningAmbient] - slow drifting glows that
 /// brighten while playing and settle while paused. The app bar and body are
 /// transparent over it; the ambient widget's own scrim keeps both edges calm.
+const _speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
+
+String _speedLabel(double s) => s == s.roundToDouble() ? s.toStringAsFixed(1) : '$s';
+
+void _seekBy(PlaybackService playback, Duration delta) {
+  final duration = playback.player.duration ?? Duration.zero;
+  final target = playback.player.position + delta;
+  playback.player.seek(target < Duration.zero ? Duration.zero : (target > duration ? duration : target));
+}
+
 class NowPlayingScreen extends StatelessWidget {
   const NowPlayingScreen({super.key});
 
@@ -156,6 +166,36 @@ class NowPlayingScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        tooltip: 'Back 10 seconds',
+                        icon: const Icon(Icons.replay_10_rounded),
+                        onPressed: () => _seekBy(playback, const Duration(seconds: -10)),
+                      ),
+                      PopupMenuButton<double>(
+                        tooltip: 'Playback speed',
+                        initialValue: playback.speed,
+                        onSelected: playback.setSpeed,
+                        itemBuilder: (_) => [
+                          for (final s in _speeds) PopupMenuItem(value: s, child: Text('${_speedLabel(s)}x')),
+                        ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Text(
+                            '${_speedLabel(playback.speed)}x',
+                            style: TextStyle(fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Forward 10 seconds',
+                        icon: const Icon(Icons.forward_10_rounded),
+                        onPressed: () => _seekBy(playback, const Duration(seconds: 10)),
+                      ),
+                    ],
+                  ),
                   TextButton.icon(
                     onPressed: () => playback.setLoopCurrentAyah(!playback.loopCurrentAyah),
                     icon: Icon(

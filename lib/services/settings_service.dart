@@ -81,4 +81,20 @@ class SettingsService {
 
   Future<void> saveKahfAyahNumber(int ayahNumber) => _box.put('kahfAyahNumber', ayahNumber);
 
+  bool getRemindersEnabled() => _box.get('remindersEnabled') as bool? ?? false;
+
+  Future<void> saveRemindersEnabled(bool value) => _box.put('remindersEnabled', value);
+
+  /// Last known coarse location, kept only on this device for computing
+  /// prayer times - never uploaded anywhere.
+  (double, double)? getReminderCoords() {
+    final lat = _box.get('reminderLat') as double?;
+    final lng = _box.get('reminderLng') as double?;
+    return lat == null || lng == null ? null : (lat, lng);
+  }
+
+  Future<void> saveReminderCoords(double lat, double lng) async {
+    await _box.put('reminderLat', lat);
+    await _box.put('reminderLng', lng);
+  }
 }

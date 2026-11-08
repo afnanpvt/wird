@@ -51,24 +51,53 @@ class NightlyRecitationScreen extends StatefulWidget {
 class _NightlyRecitationScreenState extends State<NightlyRecitationScreen> {
   final _pageController = PageController();
   late final ConfettiController _confettiController;
+  late final AppState _appState;
   int _step = 0;
   bool _finished = false;
+  // Steps already credited to today's reading, so stepping back and forward
+  // again never counts the same recitation twice.
+  final _credited = <int>{};
+  final _sitting = Stopwatch()..start();
+  int _flushedSeconds = 0;
 
   @override
   void initState() {
     super.initState();
+    _appState = context.read<AppState>();
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
   }
 
   @override
   void dispose() {
+    _flushTime();
     _pageController.dispose();
     _confettiController.dispose();
     super.dispose();
   }
 
+  /// Counts the step you're leaving toward today's ayahs, hasanat and streak,
+  /// exactly like reading it from the reading screen would.
+  void _creditStep(int index) {
+    if (!_credited.add(index)) return;
+    final step = _steps[index];
+    _appState.recordAyahsRead(step.surahNumber, step.fromAyah, step.toAyah);
+  }
+
+  /// Adds the time spent here to today's reading time (only once something
+  /// has actually been credited), without double-counting on a second flush.
+  void _flushTime() {
+    if (_credited.isEmpty) return;
+    final total = _sitting.elapsed.inSeconds;
+    final delta = total - _flushedSeconds;
+    if (delta <= 0) return;
+    _flushedSeconds = total;
+    _appState.addReadingSeconds(delta);
+  }
+
   void _next() {
+    _creditStep(_step);
     if (_step == _steps.length - 1) {
+      _flushTime();
       setState(() => _finished = true);
       _confettiController.play();
       return;

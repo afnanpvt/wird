@@ -16,6 +16,7 @@ import 'friends_service.dart';
 import 'playback_service.dart';
 import 'progress_service.dart';
 import 'quran_repository.dart';
+import 'reminder_service.dart';
 import 'settings_service.dart';
 import 'streak_engine.dart' show DayOutcome;
 import 'streak_service.dart';
@@ -29,6 +30,7 @@ class AppState extends ChangeNotifier {
   final ProgressService _progressService = ProgressService();
   final SettingsService _settingsService = SettingsService();
   final FavoritesService _favoritesService = FavoritesService();
+  final ReminderService reminders = ReminderService();
   final BookmarksService _bookmarksService = BookmarksService();
   final FriendsService? _friendsService = FeatureFlags.friendsEnabled ? FriendsService() : null;
   final BackupService? _backupService = FeatureFlags.backupEnabled ? BackupService() : null;
@@ -70,6 +72,7 @@ class AppState extends ChangeNotifier {
     kahfAyahNumber = _settingsService.getKahfAyahNumber();
     isLoaded = true;
     notifyListeners();
+    unawaited(reminders.reschedule());
   }
 
   Future<void> setScript(QuranScript script) async {
@@ -150,6 +153,22 @@ class AppState extends ChangeNotifier {
     streakState = _streakService.getState();
     _dayOutcomesCache = null;
     notifyListeners();
+    unawaited(reminders.onReadToday());
+    unawaited(_syncFriendsStatsIfOptedIn());
+    unawaited(_pushBackupIfSignedIn());
+  }
+
+  /// Same crediting as [recordAyahRead], for a whole run of ayahs at once
+  /// (the nightly recitation steps) - one notify and one friends/backup sync
+  /// for the batch instead of one per ayah.
+  Future<void> recordAyahsRead(int surahNumber, int fromAyah, int toAyah) async {
+    for (var n = fromAyah; n <= toAyah; n++) {
+      await _streakService.recordAyahRead(surahNumber, n, quran.hasanatForAyah(surahNumber, n));
+    }
+    streakState = _streakService.getState();
+    _dayOutcomesCache = null;
+    notifyListeners();
+    unawaited(reminders.onReadToday());
     unawaited(_syncFriendsStatsIfOptedIn());
     unawaited(_pushBackupIfSignedIn());
   }
@@ -365,6 +384,7 @@ class AppState extends ChangeNotifier {
   Future<void> playSurah(PlaybackService playback, int surahNumber, {int startAyahIndex = 0}) async {
     final ayahs = quran.ayahsForSurah(surahNumber);
     if (ayahs.isEmpty) return;
+    unawaited(ReminderService.ensureNotificationPermission());
     await playback.playSurah(
       surahNumber: surahNumber,
       surahName: quran.surahByNumber(surahNumber).englishName,

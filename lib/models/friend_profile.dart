@@ -119,6 +119,7 @@ class LeaderboardEntry {
   final int? ayahsThisWeek;
   final int? hasanatThisWeek;
   final bool isSelf;
+  final bool readToday;
 
   const LeaderboardEntry({
     required this.uid,
@@ -128,7 +129,14 @@ class LeaderboardEntry {
     required this.ayahsThisWeek,
     required this.hasanatThisWeek,
     this.isSelf = false,
+    this.readToday = false,
   });
+
+  static bool _isToday(String? lastActiveDate) {
+    final n = DateTime.now();
+    return lastActiveDate ==
+        '${n.year.toString().padLeft(4, '0')}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
+  }
 
   /// A friend's row - fields they've chosen to hide (show*) come through
   /// as null, since that setting controls what a friend sees of them.
@@ -139,6 +147,7 @@ class LeaderboardEntry {
         streak: profile.showStreak ? stats.currentStreak : null,
         ayahsThisWeek: profile.showAyahs ? stats.ayahsThisWeek : null,
         hasanatThisWeek: profile.showHasanat ? stats.hasanatThisWeek : null,
+        readToday: _isToday(stats.lastActiveDate),
       );
 
   /// Your own row - the show* flags only govern what friends see of you,
@@ -151,6 +160,7 @@ class LeaderboardEntry {
         ayahsThisWeek: stats.ayahsThisWeek,
         hasanatThisWeek: stats.hasanatThisWeek,
         isSelf: true,
+        readToday: _isToday(stats.lastActiveDate),
       );
 }
 

@@ -1,5 +1,6 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -42,17 +43,30 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // One stray async error (a dropped network call, a plugin hiccup) must
+  // never take the whole app down - log it and keep running.
+  FlutterError.onError = (details) => FlutterError.dumpErrorToConsole(details);
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Unhandled error: $error\n$stack');
+    return true;
+  };
   await initHive();
   // Only a dev/test build compiles either flag true (see feature_flags.dart)
   // - a public/prod build without them never contacts Firebase at all, and
   // needs no real firebase_options.dart to compile or run. Friends and
   // Backup are independent features that happen to share one Firebase
   // project, so either flag alone is enough to need it initialized.
-  if (FeatureFlags.friendsEnabled || FeatureFlags.backupEnabled) {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  }
-  if (FeatureFlags.friendsEnabled) {
-    await registerPeriodicNudgeCheck();
+  // Optional cloud features: if Firebase or the background task can't start
+  // (no network, old Play services), reading and everything local still work.
+  try {
+    if (FeatureFlags.friendsEnabled || FeatureFlags.backupEnabled) {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    }
+    if (FeatureFlags.friendsEnabled) {
+      await registerPeriodicNudgeCheck();
+    }
+  } catch (e) {
+    debugPrint('Optional services unavailable: $e');
   }
   // Created here, ahead of the widget tree, so the same instance can be
   // handed to both the audio handler below and the Provider further down.

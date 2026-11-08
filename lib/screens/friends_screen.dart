@@ -738,66 +738,122 @@ class _RequestRow extends StatelessWidget {
   }
 }
 
-class _Leaderboard extends StatelessWidget {
+enum _Rank { streak, ayahs, hasanat }
+
+extension on _Rank {
+  String get label => switch (this) { _Rank.streak => 'Streak', _Rank.ayahs => 'Ayahs', _Rank.hasanat => 'Hasanat' };
+  String get unit => switch (this) { _Rank.streak => 'day streak', _Rank.ayahs => 'ayahs this week', _Rank.hasanat => 'hasanat this week' };
+  IconData get icon => switch (this) {
+        _Rank.streak => Icons.local_fire_department_rounded,
+        _Rank.ayahs => Icons.menu_book_rounded,
+        _Rank.hasanat => Icons.auto_awesome_rounded,
+      };
+  int? valueOf(LeaderboardEntry e) => switch (this) {
+        _Rank.streak => e.streak,
+        _Rank.ayahs => e.ayahsThisWeek,
+        _Rank.hasanat => e.hasanatThisWeek,
+      };
+}
+
+/// The group's standings: pick what to rank by (streak, ayahs or hasanat
+/// this week), see where you stand and how far the next spot is, and who
+/// has read today. Friends who hide a stat sort below everyone who shares it.
+class _Leaderboard extends StatefulWidget {
   final FriendsService service;
   final VoidCallback onAddFriend;
   const _Leaderboard({required this.service, required this.onAddFriend});
 
+  @override
+  State<_Leaderboard> createState() => _LeaderboardState();
+}
+
+class _LeaderboardState extends State<_Leaderboard> {
+  _Rank _rank = _Rank.streak;
+  Future<List<LeaderboardEntry>>? _future;
+  String _futureKey = '';
+
   Future<List<LeaderboardEntry>> _load(List<String> friendUids) async {
     final entries = <LeaderboardEntry>[];
-    final ownProfile = await service.getOwnProfile();
+    final ownProfile = await widget.service.getOwnProfile();
     if (ownProfile != null) {
-      final ownStats = await service.getStats(ownProfile.uid);
+      final ownStats = await widget.service.getStats(ownProfile.uid);
       entries.add(LeaderboardEntry.forSelf(ownProfile, ownStats));
     }
     for (final uid in friendUids) {
-      final profile = await service.getProfile(uid);
-      if (profile == null || !profile.friendsEnabled) continue;
-      final stats = await service.getStats(uid);
-      entries.add(LeaderboardEntry.from(profile, stats));
+      try {
+        final profile = await widget.service.getProfile(uid);
+        if (profile == null || !profile.friendsEnabled) continue;
+        final stats = await widget.service.getStats(uid);
+        entries.add(LeaderboardEntry.from(profile, stats));
+      } catch (_) {
+        // One unreachable friend shouldn't blank the whole board.
+      }
     }
-    entries.sort((a, b) {
-      final streakCompare = (b.streak ?? -1).compareTo(a.streak ?? -1);
-      if (streakCompare != 0) return streakCompare;
-      return (b.hasanatThisWeek ?? -1).compareTo(a.hasanatThisWeek ?? -1);
-    });
     return entries;
   }
+
+  List<LeaderboardEntry> _sorted(List<LeaderboardEntry> entries) {
+    final sorted = [...entries];
+    sorted.sort((a, b) {
+      final primary = (_rank.valueOf(b) ?? -1).compareTo(_rank.valueOf(a) ?? -1);
+      if (primary != 0) return primary;
+      return (b.hasanatThisWeek ?? -1).compareTo(a.hasanatThisWeek ?? -1);
+    });
+    return sorted;
+  }
+
+  Widget _empty() => FutureBuilder<FriendProfile?>(
+        future: widget.service.getOwnProfile(),
+        builder: (context, own) => _EmptyLeaderboard(friendCode: own.data?.friendCode, onAddFriend: widget.onAddFriend),
+      );
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<String>>(
-      stream: service.friendUids(),
+      stream: widget.service.friendUids(),
       builder: (context, friendsSnapshot) {
         final friendUids = friendsSnapshot.data ?? const [];
-        if (friendUids.isEmpty) {
-          return FutureBuilder<FriendProfile?>(
-            future: service.getOwnProfile(),
-            builder: (context, ownProfile) => _EmptyLeaderboard(
-              friendCode: ownProfile.data?.friendCode,
-              onAddFriend: onAddFriend,
-            ),
-          );
+        if (friendUids.isEmpty) return _empty();
+        // Cached per friend list: switching the ranking metric re-sorts
+        // locally instead of re-fetching every friend from Firestore.
+        final key = friendUids.join(',');
+        if (key != _futureKey) {
+          _futureKey = key;
+          _future = _load(friendUids);
         }
         return FutureBuilder<List<LeaderboardEntry>>(
-          future: _load(friendUids),
+          future: _future,
           builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Padding(padding: EdgeInsets.only(top: 40), child: Center(child: CircularProgressIndicator()));
-            }
-            final entries = snapshot.data!;
-            if (entries.isEmpty) {
-              return FutureBuilder<FriendProfile?>(
-                future: service.getOwnProfile(),
-                builder: (context, ownProfile) => _EmptyLeaderboard(
-                  friendCode: ownProfile.data?.friendCode,
-                  onAddFriend: onAddFriend,
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 32),
+                child: Center(
+                  child: TextButton(
+                    onPressed: () => setState(() => _futureKey = ''),
+                    child: const Text("Couldn't load friends. Tap to retry"),
+                  ),
                 ),
               );
             }
+            if (!snapshot.hasData) {
+              return const Padding(padding: EdgeInsets.only(top: 40), child: Center(child: CircularProgressIndicator()));
+            }
+            final entries = _sorted(snapshot.data!);
+            if (entries.length <= 1) return _empty();
+            final myIndex = entries.indexWhere((e) => e.isSelf);
             return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (var i = 0; i < entries.length; i++) _LeaderboardRow(rank: i + 1, entry: entries[i]),
+                if (myIndex >= 0) _StandingCard(rank: _rank, entries: entries, myIndex: myIndex),
+                const SizedBox(height: 16),
+                SegmentedButton<_Rank>(
+                  showSelectedIcon: false,
+                  segments: [for (final r in _Rank.values) ButtonSegment(value: r, label: Text(r.label), icon: Icon(r.icon, size: 16))],
+                  selected: {_rank},
+                  onSelectionChanged: (s) => setState(() => _rank = s.first),
+                ),
+                const SizedBox(height: 16),
+                for (var i = 0; i < entries.length; i++) _LeaderboardRow(rank: i + 1, entry: entries[i], metric: _rank),
               ],
             );
           },
@@ -807,14 +863,79 @@ class _Leaderboard extends StatelessWidget {
   }
 }
 
-class _LeaderboardRow extends StatelessWidget {
-  final int rank;
-  final LeaderboardEntry entry;
-  const _LeaderboardRow({required this.rank, required this.entry});
+/// Headline for the board: your place and the exact gap to the next one up
+/// (or the lead you're holding) - real numbers only.
+class _StandingCard extends StatelessWidget {
+  final _Rank rank;
+  final List<LeaderboardEntry> entries;
+  final int myIndex;
+  const _StandingCard({required this.rank, required this.entries, required this.myIndex});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final me = entries[myIndex];
+    final mine = rank.valueOf(me) ?? 0;
+    final readCount = entries.where((e) => e.readToday).length;
+
+    final String detail;
+    if (myIndex == 0) {
+      final next = rank.valueOf(entries[1]);
+      detail = next == null ? "You're leading." : "You're leading by ${mine - next}.";
+    } else {
+      final above = entries[myIndex - 1];
+      final aboveValue = rank.valueOf(above);
+      detail = aboveValue == null ? '${above.displayName} is next up.' : '${aboveValue - mine} behind ${above.displayName}.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(18)),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: colorScheme.primary.withValues(alpha: 0.14)),
+            child: Text(
+              '#${myIndex + 1}',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: colorScheme.primary),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$mine ${rank.unit}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(detail, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 2),
+                Text(
+                  '$readCount of ${entries.length} read today',
+                  style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LeaderboardRow extends StatelessWidget {
+  final int rank;
+  final LeaderboardEntry entry;
+  final _Rank metric;
+  const _LeaderboardRow({required this.rank, required this.entry, required this.metric});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final others = [for (final r in _Rank.values) if (r != metric) r];
+    final value = metric.valueOf(entry);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -827,20 +948,55 @@ class _LeaderboardRow extends StatelessWidget {
         children: [
           _RankBadge(rank: rank),
           const SizedBox(width: 10),
-          ProfileAvatar(seed: entry.avatarSeed, size: 40),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ProfileAvatar(seed: entry.avatarSeed, size: 40),
+              if (entry.readToday)
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.primary,
+                      border: Border.all(color: colorScheme.surface, width: 2),
+                    ),
+                    child: Icon(Icons.check_rounded, size: 10, color: colorScheme.onPrimary),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              entry.isSelf ? '${entry.displayName} (you)' : entry.displayName,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.isSelf ? '${entry.displayName} (you)' : entry.displayName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [for (final r in others) '${r.valueOf(entry) ?? '-'} ${r.label.toLowerCase()}'].join('  ·  '),
+                  style: TextStyle(fontSize: 11.5, color: colorScheme.onSurfaceVariant),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
-          _StatColumn(icon: Icons.local_fire_department_rounded, value: entry.streak, label: 'streak'),
-          const SizedBox(width: 14),
-          _StatColumn(icon: Icons.menu_book_rounded, value: entry.ayahsThisWeek, label: 'ayahs'),
-          const SizedBox(width: 14),
-          _StatColumn(icon: Icons.auto_awesome_rounded, value: entry.hasanatThisWeek, label: 'hasanat'),
+          const SizedBox(width: 8),
+          Text(
+            value == null ? '-' : '$value',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: value == null ? colorScheme.onSurfaceVariant : colorScheme.onSurface,
+            ),
+          ),
         ],
       ),
     );
@@ -879,29 +1035,6 @@ class _RankBadge extends StatelessWidget {
               decoration: BoxDecoration(shape: BoxShape.circle, color: tint.withValues(alpha: 0.18)),
               child: Icon(Icons.emoji_events_rounded, size: 16, color: tint),
             ),
-    );
-  }
-}
-
-class _StatColumn extends StatelessWidget {
-  final IconData icon;
-  final int? value;
-  final String label;
-  const _StatColumn({required this.icon, required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
-        const SizedBox(height: 2),
-        Text(
-          value == null ? '-' : '$value',
-          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: value == null ? colorScheme.onSurfaceVariant : colorScheme.onSurface),
-        ),
-      ],
     );
   }
 }

@@ -92,6 +92,7 @@ class WirdAudioHandler extends BaseAudioHandler {
       controls: controls,
       systemActions: {
         MediaAction.seek,
+        MediaAction.setSpeed,
         MediaAction.play,
         MediaAction.pause,
         MediaAction.playPause,
@@ -112,6 +113,9 @@ class WirdAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> pause() => _playback.player.pause();
+
+  @override
+  Future<void> setSpeed(double speed) => _playback.setSpeed(speed);
 
   @override
   Future<void> seek(Duration position) => _playback.player.seek(position);

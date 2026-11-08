@@ -58,7 +58,6 @@ class _StreakCalendarScreenState extends State<StreakCalendarScreen> {
   // about days.
   _Metric _metric = _Metric.ayahs;
   _Grain _grain = _Grain.month;
-  late DateTime _statsVisibleMonth;
   late int _statsVisibleYear;
 
   @override
@@ -68,7 +67,6 @@ class _StreakCalendarScreenState extends State<StreakCalendarScreen> {
     _anchorMonth = DateTime(now.year, now.month, 1);
     _visibleMonth = ValueNotifier(_anchorMonth);
     _pageController = PageController(initialPage: _initialPage);
-    _statsVisibleMonth = DateTime(now.year, now.month, 1);
     _statsVisibleYear = now.year;
   }
 
@@ -198,6 +196,8 @@ class _StreakCalendarScreenState extends State<StreakCalendarScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _MetricSelector(selected: _metric, onChanged: (m) => setState(() => _metric = m)),
+              const SizedBox(height: 16),
               ValueListenableBuilder<DateTime>(
                 valueListenable: _visibleMonth,
                 builder: (context, month, _) => Row(
@@ -264,7 +264,14 @@ class _StreakCalendarScreenState extends State<StreakCalendarScreen> {
                   physics: const QuickPageScrollPhysics(),
                   onPageChanged: (page) => _visibleMonth.value = _monthForPage(page),
                   itemBuilder: (context, page) =>
-                      RepaintBoundary(child: _MonthGrid(month: _monthForPage(page), appState: appState)),
+                      RepaintBoundary(
+                        child: _MonthGrid(
+                          month: _monthForPage(page),
+                          appState: appState,
+                          valueFor: (d) => _valueFor(appState, d),
+                          onTapDay: (d) => _showDaySheet(context, d),
+                        ),
+                      ),
                 ),
               ),
               const SizedBox(height: 40),
@@ -272,8 +279,6 @@ class _StreakCalendarScreenState extends State<StreakCalendarScreen> {
               const SizedBox(height: 36),
               Text('STATS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: colorScheme.onSurfaceVariant)),
               const SizedBox(height: 12),
-              _MetricSelector(selected: _metric, onChanged: (m) => setState(() => _metric = m)),
-              const SizedBox(height: 20),
               _GrainSelector(selected: _grain, onChanged: (g) => setState(() => _grain = g)),
               const SizedBox(height: 24),
               if (earliest == null)
@@ -285,19 +290,8 @@ class _StreakCalendarScreenState extends State<StreakCalendarScreen> {
                       formatValue: _formatValue,
                       onTapDay: (d) => _showDaySheet(context, d),
                     ),
-                  _Grain.month => _MonthHeatmap(
-                      month: _statsVisibleMonth,
-                      valueFor: (d) => _valueFor(appState, d),
-                      onTapDay: (d) => _showDaySheet(context, d),
-                      onPrevMonth: () => setState(
-                        () => _statsVisibleMonth = DateTime(_statsVisibleMonth.year, _statsVisibleMonth.month - 1, 1),
-                      ),
-                      onNextMonth: _isCurrentMonth(_statsVisibleMonth)
-                          ? null
-                          : () => setState(
-                              () => _statsVisibleMonth = DateTime(_statsVisibleMonth.year, _statsVisibleMonth.month + 1, 1),
-                            ),
-                    ),
+                  // The calendar above is the month view; nothing more to draw.
+                  _Grain.month => const SizedBox.shrink(),
                   _Grain.year => _YearHeatmap(
                       year: _statsVisibleYear,
                       valueFor: (d) => _valueFor(appState, d),
@@ -307,14 +301,17 @@ class _StreakCalendarScreenState extends State<StreakCalendarScreen> {
                     ),
                 },
                 const SizedBox(height: 20),
-                _RangeTotal(
-                  grain: _grain,
-                  month: _statsVisibleMonth,
-                  year: _statsVisibleYear,
-                  metricUnitLabel: _metricUnitLabel,
-                  formatValue: _formatValue,
-                  valueFor: (d) => _valueFor(appState, d),
-                  earliest: earliest,
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: _visibleMonth,
+                  builder: (context, month, _) => _RangeTotal(
+                    grain: _grain,
+                    month: month,
+                    year: _statsVisibleYear,
+                    metricUnitLabel: _metricUnitLabel,
+                    formatValue: _formatValue,
+                    valueFor: (d) => _valueFor(appState, d),
+                    earliest: earliest,
+                  ),
                 ),
                 const SizedBox(height: 28),
                 _InsightsGrid(
@@ -561,8 +558,10 @@ class _InsightTile extends StatelessWidget {
 class _MonthGrid extends StatelessWidget {
   final DateTime month;
   final AppState appState;
+  final int Function(DateTime) valueFor;
+  final ValueChanged<DateTime> onTapDay;
 
-  const _MonthGrid({required this.month, required this.appState});
+  const _MonthGrid({required this.month, required this.appState, required this.valueFor, required this.onTapDay});
 
   static const weeksPerGrid = 6;
   static const rowHeight = 36.0;
@@ -583,6 +582,14 @@ class _MonthGrid extends StatelessWidget {
     final firstWeekdayColumn = DateTime(month.year, month.month, 1).weekday % 7;
 
     var daysReadThisMonth = 0;
+    var maxValue = 0;
+    for (var d = 1; d <= daysInMonth; d++) {
+      final date = DateTime(month.year, month.month, d);
+      if (date.isAfter(today)) break;
+      final v = valueFor(date);
+      if (v > maxValue) maxValue = v;
+    }
+    final colorScheme = Theme.of(context).colorScheme;
     final weeks = List.generate(weeksPerGrid, (week) {
       return List.generate(7, (column) {
         final dayNumber = week * 7 + column - firstWeekdayColumn + 1;
@@ -591,7 +598,11 @@ class _MonthGrid extends StatelessWidget {
         final isFuture = date.isAfter(today);
         final wasRead = !isFuture && appState.wasReadOnDate(date);
         if (wasRead) daysReadThisMonth++;
+        final value = isFuture ? 0 : valueFor(date);
         return (
+          date: date,
+          fill: _intensityColor(colorScheme, value, maxValue),
+          strong: maxValue > 0 && value / maxValue > 0.55,
           day: dayNumber,
           isFuture: isFuture,
           isToday: date == today,
@@ -601,7 +612,6 @@ class _MonthGrid extends StatelessWidget {
       });
     });
 
-    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -634,6 +644,9 @@ class _MonthGrid extends StatelessWidget {
                           outcome: cell.outcome,
                           joinsLeft: joinsLeft,
                           joinsRight: joinsRight,
+                          fill: cell.fill,
+                          strong: cell.strong,
+                          onTap: cell.isFuture ? null : () => onTapDay(cell.date),
                         ),
                 );
               }),
@@ -660,6 +673,9 @@ class _DayCell extends StatelessWidget {
   final DayOutcome? outcome;
   final bool joinsLeft;
   final bool joinsRight;
+  final Color fill;
+  final bool strong;
+  final VoidCallback? onTap;
 
   const _DayCell({
     required this.day,
@@ -669,12 +685,18 @@ class _DayCell extends StatelessWidget {
     required this.outcome,
     required this.joinsLeft,
     required this.joinsRight,
+    required this.fill,
+    required this.strong,
+    required this.onTap,
   });
 
   static const _height = 36.0;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: _build(context));
+
+  Widget _build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (filled) {
@@ -682,7 +704,9 @@ class _DayCell extends StatelessWidget {
         height: _height,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: colorScheme.primary,
+          // Shade follows the selected metric (ayahs / hasanat / time),
+          // relative to the busiest day this month.
+          color: fill.a == 0 ? colorScheme.primary.withValues(alpha: 0.28) : fill,
           borderRadius: BorderRadius.horizontal(
             left: Radius.circular(joinsLeft ? 0 : _height / 2),
             right: Radius.circular(joinsRight ? 0 : _height / 2),
@@ -690,7 +714,7 @@ class _DayCell extends StatelessWidget {
         ),
         child: Text(
           '$day',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: colorScheme.onPrimary),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: strong ? colorScheme.onPrimary : colorScheme.onSurface),
         ),
       );
     }
@@ -1136,132 +1160,6 @@ class _WeekGrid extends StatelessWidget {
           ),
         );
       }),
-    );
-  }
-}
-
-class _MonthHeatmap extends StatelessWidget {
-  final DateTime month;
-  final int Function(DateTime) valueFor;
-  final ValueChanged<DateTime> onTapDay;
-  final VoidCallback onPrevMonth;
-  final VoidCallback? onNextMonth;
-
-  const _MonthHeatmap({
-    required this.month,
-    required this.valueFor,
-    required this.onTapDay,
-    required this.onPrevMonth,
-    required this.onNextMonth,
-  });
-
-  static const _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
-  static const _dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-
-    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    final firstWeekdayColumn = DateTime(month.year, month.month, 1).weekday % 7;
-
-    final values = <int, int>{};
-    var maxValue = 0;
-    for (var d = 1; d <= daysInMonth; d++) {
-      final date = DateTime(month.year, month.month, d);
-      if (date.isAfter(today)) continue;
-      final v = valueFor(date);
-      values[d] = v;
-      if (v > maxValue) maxValue = v;
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              tooltip: 'Previous month',
-              icon: const Icon(Icons.chevron_left_rounded),
-              onPressed: onPrevMonth,
-            ),
-            Text(
-              '${_monthNames[month.month - 1]} ${month.year}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            IconButton(
-              tooltip: 'Next month',
-              icon: const Icon(Icons.chevron_right_rounded),
-              onPressed: onNextMonth,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            for (final label in _dayLabels)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    label,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        for (var week = 0; week < 6; week++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: List.generate(7, (column) {
-                final dayNumber = week * 7 + column - firstWeekdayColumn + 1;
-                if (dayNumber < 1 || dayNumber > daysInMonth) {
-                  return const Expanded(child: SizedBox(height: 36));
-                }
-                final date = DateTime(month.year, month.month, dayNumber);
-                final isFuture = date.isAfter(today);
-                final isToday = date == today;
-                final value = values[dayNumber] ?? 0;
-
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: isFuture ? null : () => onTapDay(date),
-                    child: Container(
-                      height: 36,
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isFuture ? null : _intensityColor(colorScheme, value, maxValue),
-                        borderRadius: BorderRadius.circular(8),
-                        border: isToday ? Border.all(color: colorScheme.primary, width: 1.5) : null,
-                      ),
-                      child: Text(
-                        '$dayNumber',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-                          color: isFuture
-                              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.35)
-                              : value / (maxValue == 0 ? 1 : maxValue) > 0.55
-                                  ? colorScheme.onPrimary
-                                  : colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-      ],
     );
   }
 }
